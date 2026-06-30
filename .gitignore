@@ -1,0 +1,37 @@
+# ASME B31.8 Branch Connection
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# Build output
+build/
+dist/
+*.spec.bak
+
+# PyInstaller
+*.manifest
+*.exe
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/project_logbook*.json
+
+# OS
+.DS_Store
+Thumbs.db

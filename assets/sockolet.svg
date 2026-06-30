@@ -1,0 +1,35 @@
+<svg width="480" height="320" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg6" x1="56" y1="18" x2="432" y2="295" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#E8EFF7"/>
+    </linearGradient>
+    <linearGradient id="run6" x1="76" y1="132" x2="392" y2="198" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0E8F0"/>
+      <stop offset="0.4" stop-color="#8EA3B8"/>
+      <stop offset="0.7" stop-color="#F7FBFF"/>
+      <stop offset="1" stop-color="#71869A"/>
+    </linearGradient>
+    <linearGradient id="socket6" x1="181" y1="76" x2="271" y2="192" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C3D1DE"/>
+      <stop offset="0.5" stop-color="#6B8299"/>
+      <stop offset="1" stop-color="#E8EFF6"/>
+    </linearGradient>
+    <filter id="shadow6" x="38" y="46" width="408" height="220" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#21364F" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="444" height="284" rx="28" fill="url(#bg6)"/>
+  <ellipse cx="240" cy="260" rx="144" ry="18" fill="#A8BACB" fill-opacity="0.24"/>
+  <g filter="url(#shadow6)">
+    <rect x="76" y="128" width="316" height="72" rx="24" fill="url(#run6)"/>
+    <ellipse cx="76" cy="164" rx="22" ry="36" fill="#CCD7E2"/>
+    <ellipse cx="392" cy="164" rx="22" ry="36" fill="#7D91A6"/>
+    <path d="M207 98C207 82 220 69 236 69C252 69 265 82 265 98V179H207V98Z" fill="url(#socket6)"/>
+    <rect x="195" y="97" width="82" height="28" rx="12" fill="#59718A"/>
+    <ellipse cx="236" cy="69" rx="29" ry="14" fill="#E2EAF2"/>
+    <ellipse cx="236" cy="96" rx="17" ry="8" fill="#7D93A9"/>
+    <path d="M219 116C233 109 249 109 261 116" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="240" y="294" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#30465E">Sockolet</text>
+</svg>

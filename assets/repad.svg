@@ -1,0 +1,39 @@
+<svg width="480" height="320" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg4" x1="56" y1="18" x2="432" y2="295" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#E8EFF7"/>
+    </linearGradient>
+    <linearGradient id="run4" x1="76" y1="126" x2="394" y2="200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E2EAF2"/>
+      <stop offset="0.43" stop-color="#8CA2B8"/>
+      <stop offset="0.7" stop-color="#F8FBFE"/>
+      <stop offset="1" stop-color="#72879B"/>
+    </linearGradient>
+    <linearGradient id="branch4" x1="192" y1="77" x2="264" y2="197" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BACADA"/>
+      <stop offset="0.45" stop-color="#6D8399"/>
+      <stop offset="1" stop-color="#E7EEF5"/>
+    </linearGradient>
+    <linearGradient id="pad4" x1="158" y1="110" x2="294" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4C6480"/>
+      <stop offset="1" stop-color="#7B93A8"/>
+    </linearGradient>
+    <filter id="shadow4" x="38" y="42" width="408" height="224" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#21364F" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="444" height="284" rx="28" fill="url(#bg4)"/>
+  <ellipse cx="240" cy="262" rx="142" ry="18" fill="#A6B8C8" fill-opacity="0.24"/>
+  <g filter="url(#shadow4)">
+    <rect x="76" y="126" width="318" height="74" rx="24" fill="url(#run4)"/>
+    <ellipse cx="76" cy="163" rx="22" ry="37" fill="#CCD7E2"/>
+    <ellipse cx="394" cy="163" rx="22" ry="37" fill="#7C90A5"/>
+    <path d="M156 130C181 108 212 98 244 100C274 101 300 111 320 126" stroke="#315071" stroke-width="18" stroke-linecap="round"/>
+    <rect x="191" y="70" width="66" height="108" rx="22" fill="url(#branch4)"/>
+    <ellipse cx="224" cy="70" rx="33" ry="16" fill="#DCE6F0"/>
+    <ellipse cx="224" cy="178" rx="33" ry="16" fill="#6F859A"/>
+    <path d="M157 132C188 144 260 144 292 132" stroke="#A6B7C8" stroke-width="5" stroke-linecap="round" stroke-dasharray="8 7"/>
+  </g>
+  <text x="240" y="294" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#30465E">Reinforcing Pad</text>
+</svg>

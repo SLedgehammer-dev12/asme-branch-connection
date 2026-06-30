@@ -1,0 +1,40 @@
+<svg width="480" height="320" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg2" x1="54" y1="20" x2="430" y2="290" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#E8EEF6"/>
+    </linearGradient>
+    <linearGradient id="body2" x1="84" y1="111" x2="392" y2="206" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0E8F0"/>
+      <stop offset="0.45" stop-color="#8FA5BB"/>
+      <stop offset="0.7" stop-color="#F7FBFF"/>
+      <stop offset="1" stop-color="#74879C"/>
+    </linearGradient>
+    <linearGradient id="clamp2" x1="170" y1="68" x2="291" y2="222" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A9BCCF"/>
+      <stop offset="0.5" stop-color="#6D8197"/>
+      <stop offset="1" stop-color="#D9E4EE"/>
+    </linearGradient>
+    <filter id="shadow2" x="38" y="42" width="408" height="234" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#20364E" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="444" height="284" rx="28" fill="url(#bg2)"/>
+  <ellipse cx="240" cy="262" rx="140" ry="18" fill="#A6B7C8" fill-opacity="0.25"/>
+  <g filter="url(#shadow2)">
+    <rect x="78" y="120" width="314" height="78" rx="26" fill="url(#body2)"/>
+    <ellipse cx="78" cy="159" rx="24" ry="39" fill="#CCD7E2"/>
+    <ellipse cx="392" cy="159" rx="24" ry="39" fill="#798EA4"/>
+    <rect x="167" y="91" width="146" height="104" rx="24" fill="url(#clamp2)" fill-opacity="0.96"/>
+    <rect x="191" y="58" width="66" height="105" rx="22" fill="url(#clamp2)"/>
+    <ellipse cx="224" cy="58" rx="33" ry="16" fill="#DCE7F2"/>
+    <ellipse cx="224" cy="163" rx="33" ry="16" fill="#6E859B"/>
+    <path d="M188 91V195" stroke="#4C6077" stroke-width="6" stroke-linecap="round"/>
+    <path d="M292 91V195" stroke="#4C6077" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="176" cy="112" r="6" fill="#EFF5FB"/>
+    <circle cx="304" cy="112" r="6" fill="#EFF5FB"/>
+    <circle cx="176" cy="174" r="6" fill="#5E748D"/>
+    <circle cx="304" cy="174" r="6" fill="#5E748D"/>
+  </g>
+  <text x="240" y="294" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#30465E">Split Tee</text>
+</svg>

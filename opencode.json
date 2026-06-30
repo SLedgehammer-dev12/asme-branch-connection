@@ -1,0 +1,34 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": ["./skills"]
+  },
+  "instructions": ["skills/b31-8-branch-tool-builder/SKILL.md"],
+  "agent": {
+    "b31-engineer": {
+      "description": "ASME B31.8 calculation engine agent (engine.py only)",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    },
+    "b31-database": {
+      "description": "ASME B31.8 fitting/piping database agent (fitting_database.py + data/)",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    },
+    "b31-ui": {
+      "description": "ASME B31.8 Streamlit UI agent (app.py + ui/*.py)",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    },
+    "b31-qa": {
+      "description": "ASME B31.8 QA gatekeeper - runs tests, approves changes",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    },
+    "b31-build": {
+      "description": "ASME B31.8 build/deploy agent - PyInstaller EXE packaging",
+      "mode": "subagent",
+      "model": "opencode-go/deepseek-v4-pro"
+    }
+  }
+}

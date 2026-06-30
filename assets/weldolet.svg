@@ -1,0 +1,33 @@
+<svg width="480" height="320" viewBox="0 0 480 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg5" x1="56" y1="18" x2="432" y2="295" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFCFF"/>
+      <stop offset="1" stop-color="#E8EFF7"/>
+    </linearGradient>
+    <linearGradient id="run5" x1="76" y1="132" x2="392" y2="196" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0E8F0"/>
+      <stop offset="0.4" stop-color="#8EA3B8"/>
+      <stop offset="0.7" stop-color="#F7FBFF"/>
+      <stop offset="1" stop-color="#71869A"/>
+    </linearGradient>
+    <linearGradient id="olet5" x1="180" y1="76" x2="284" y2="187" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C7D4E1"/>
+      <stop offset="0.45" stop-color="#71879D"/>
+      <stop offset="1" stop-color="#EDF3F8"/>
+    </linearGradient>
+    <filter id="shadow5" x="38" y="46" width="408" height="218" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#21364F" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect x="18" y="18" width="444" height="284" rx="28" fill="url(#bg5)"/>
+  <ellipse cx="240" cy="260" rx="144" ry="18" fill="#A8BACB" fill-opacity="0.24"/>
+  <g filter="url(#shadow5)">
+    <rect x="76" y="128" width="316" height="72" rx="24" fill="url(#run5)"/>
+    <ellipse cx="76" cy="164" rx="22" ry="36" fill="#CCD7E2"/>
+    <ellipse cx="392" cy="164" rx="22" ry="36" fill="#7D91A6"/>
+    <path d="M194 158C195 131 204 111 222 95L247 74C256 67 268 69 274 78L281 88C286 95 285 106 278 113L254 137C243 148 237 163 237 179V184H194V158Z" fill="url(#olet5)"/>
+    <ellipse cx="262" cy="81" rx="21" ry="12" transform="rotate(-31 262 81)" fill="#E3EBF3"/>
+    <path d="M204 153C223 146 242 147 257 156" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="240" y="294" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" fill="#30465E">Weldolet</text>
+</svg>

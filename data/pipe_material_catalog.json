@@ -1,0 +1,550 @@
+{
+  "API 5L PSL 1": {
+    "Grade B": {
+      "SMYS_MPa": 245,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "245 MPa (35 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "23%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.26 max",
+        "Mn": "1.20 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "API 5L Grade B",
+      "Form": null
+    },
+    "X42": {
+      "SMYS_MPa": 290,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "290 MPa (42 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "23%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.26 max",
+        "Mn": "1.30 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "API 5L X42",
+      "Form": null
+    },
+    "X46": {
+      "SMYS_MPa": 320,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "320 MPa (46 ksi)",
+        "Tensile": "435 MPa (63 ksi)",
+        "Elong": "22%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.26 max",
+        "Mn": "1.35 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "API 5L X46",
+      "Form": null
+    },
+    "X52": {
+      "SMYS_MPa": 360,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "360 MPa (52 ksi)",
+        "Tensile": "460 MPa (66 ksi)",
+        "Elong": "21%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "1.40 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X52",
+      "Form": null
+    },
+    "X56": {
+      "SMYS_MPa": 390,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "390 MPa (56 ksi)",
+        "Tensile": "490 MPa (71 ksi)",
+        "Elong": "20%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "1.40 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X56",
+      "Form": null
+    },
+    "X60": {
+      "SMYS_MPa": 415,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "415 MPa (60 ksi)",
+        "Tensile": "520 MPa (75 ksi)",
+        "Elong": "19%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "1.40 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "Nb": "0.05 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X60",
+      "Form": null
+    },
+    "X65": {
+      "SMYS_MPa": 450,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "535 MPa (77 ksi)",
+        "Elong": "18%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "1.45 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "Nb": "0.06 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X65",
+      "Form": null
+    },
+    "X70": {
+      "SMYS_MPa": 485,
+      "Desc": "Carbon steel line pipe",
+      "Mech": {
+        "Yield": "485 MPa (70 ksi)",
+        "Tensile": "570 MPa (82 ksi)",
+        "Elong": "17%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "1.65 max",
+        "P": "0.030 max",
+        "S": "0.030 max",
+        "Si": "0.45 max",
+        "Nb": "0.06 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X70",
+      "Form": null
+    }
+  },
+  "API 5L PSL 2": {
+    "Grade B": {
+      "SMYS_MPa": 245,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "245 MPa (35 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "23%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.20 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "API 5L Grade B",
+      "Form": null
+    },
+    "X42": {
+      "SMYS_MPa": 290,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "290 MPa (42 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "23%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.30 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "API 5L X42",
+      "Form": null
+    },
+    "X52": {
+      "SMYS_MPa": 360,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "360 MPa (52 ksi)",
+        "Tensile": "460 MPa (66 ksi)",
+        "Elong": "21%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.40 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.05 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X52",
+      "Form": null
+    },
+    "X56": {
+      "SMYS_MPa": 390,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "390 MPa (56 ksi)",
+        "Tensile": "490 MPa (71 ksi)",
+        "Elong": "20%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.40 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.05 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X56",
+      "Form": null
+    },
+    "X60": {
+      "SMYS_MPa": 415,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "415 MPa (60 ksi)",
+        "Tensile": "520 MPa (75 ksi)",
+        "Elong": "19%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.45 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.06 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X60",
+      "Form": null
+    },
+    "X65": {
+      "SMYS_MPa": 450,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "535 MPa (77 ksi)",
+        "Elong": "18%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "1.50 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.06 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X65",
+      "Form": null
+    },
+    "X70": {
+      "SMYS_MPa": 485,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "485 MPa (70 ksi)",
+        "Tensile": "570 MPa (82 ksi)",
+        "Elong": "17%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.65 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.06 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X70",
+      "Form": null
+    },
+    "X80": {
+      "SMYS_MPa": 555,
+      "Desc": "Carbon steel line pipe, PSL 2",
+      "Mech": {
+        "Yield": "555 MPa (80 ksi)",
+        "Tensile": "625 MPa (90 ksi)",
+        "Elong": "16%",
+        "Hardness": "22 HRC max"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.85 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "Nb": "0.08 max",
+        "V": "0.10 max",
+        "Ti": "0.04 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "API 5L X80",
+      "Form": null
+    }
+  },
+  "ASTM A106": {
+    "Grade B": {
+      "SMYS_MPa": 240,
+      "Desc": "Seamless carbon steel pipe",
+      "Mech": {
+        "Yield": "240 MPa (35 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "22%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.30 max",
+        "Mn": "0.29-1.06",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.10 min"
+      },
+      "SpecLabel": "ASTM A106 Grade B",
+      "Form": null
+    },
+    "Grade C": {
+      "SMYS_MPa": 275,
+      "Desc": "Seamless carbon steel pipe",
+      "Mech": {
+        "Yield": "275 MPa (40 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "20%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.35 max",
+        "Mn": "0.29-1.06",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.10 min"
+      },
+      "SpecLabel": "ASTM A106 Grade C",
+      "Form": null
+    }
+  },
+  "ASTM A333": {
+    "Grade 6": {
+      "SMYS_MPa": 240,
+      "Desc": "Low-temperature carbon steel pipe",
+      "Mech": {
+        "Yield": "240 MPa (35 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "22%",
+        "CVN": "18J @ -45 C"
+      },
+      "Chem": {
+        "C": "0.30 max",
+        "Mn": "0.29-1.06",
+        "P": "0.025 max",
+        "S": "0.025 max",
+        "Si": "0.10 min"
+      },
+      "SpecLabel": "ASTM A333 Grade 6",
+      "Form": null
+    }
+  },
+  "ASTM A312": {
+    "TP304": {
+      "SMYS_MPa": 205,
+      "Desc": "Austenitic stainless steel pipe",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "35%",
+        "Hardness": "92 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "0.75 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-11.0"
+      },
+      "SpecLabel": "ASTM A312 TP304",
+      "Form": null
+    },
+    "TP304L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon austenitic stainless steel pipe",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "35%",
+        "Hardness": "92 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "0.75 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-12.0"
+      },
+      "SpecLabel": "ASTM A312 TP304L",
+      "Form": null
+    },
+    "TP316": {
+      "SMYS_MPa": 205,
+      "Desc": "Molybdenum-bearing stainless steel pipe",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "35%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "0.75 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-14.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A312 TP316",
+      "Form": null
+    },
+    "TP316L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon molybdenum-bearing stainless steel pipe",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "35%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "0.75 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-15.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A312 TP316L",
+      "Form": null
+    }
+  },
+  "ASTM A790": {
+    "S31803": {
+      "SMYS_MPa": 450,
+      "Desc": "Duplex stainless steel pipe",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "620 MPa (90 ksi)",
+        "Elong": "25%",
+        "Hardness": "290 HB max"
+      },
+      "Chem": {
+        "C": "0.030 max",
+        "Mn": "2.00 max",
+        "P": "0.030 max",
+        "S": "0.020 max",
+        "Si": "1.00 max",
+        "Cr": "21.0-23.0",
+        "Ni": "4.5-6.5",
+        "Mo": "2.5-3.5",
+        "N": "0.08-0.20"
+      },
+      "SpecLabel": "ASTM A790 S31803",
+      "Form": null
+    },
+    "S32205": {
+      "SMYS_MPa": 450,
+      "Desc": "Duplex stainless steel pipe",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "620 MPa (90 ksi)",
+        "Elong": "25%",
+        "Hardness": "290 HB max"
+      },
+      "Chem": {
+        "C": "0.030 max",
+        "Mn": "2.00 max",
+        "P": "0.030 max",
+        "S": "0.020 max",
+        "Si": "1.00 max",
+        "Cr": "22.0-23.0",
+        "Ni": "4.5-6.5",
+        "Mo": "3.0-3.5",
+        "N": "0.14-0.20"
+      },
+      "SpecLabel": "ASTM A790 S32205",
+      "Form": null
+    }
+  }
+}

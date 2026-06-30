@@ -1,0 +1,605 @@
+{
+  "ASTM A234": {
+    "WPB": {
+      "SMYS_MPa": 240,
+      "Desc": "Wrought carbon steel butt-weld fitting",
+      "Mech": {
+        "Yield": "240 MPa (35 ksi)",
+        "Tensile": "415-585 MPa",
+        "Elong": "30%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.30 max",
+        "Mn": "0.29-1.06",
+        "P": "0.050 max",
+        "S": "0.058 max",
+        "Si": "0.10 min",
+        "Cr": "0.40 max",
+        "Mo": "0.15 max"
+      },
+      "SpecLabel": "ASTM A234 WPB",
+      "Form": "ButtWeld"
+    },
+    "WPC": {
+      "SMYS_MPa": 275,
+      "Desc": "Wrought carbon steel butt-weld fitting",
+      "Mech": {
+        "Yield": "275 MPa (40 ksi)",
+        "Tensile": "485-620 MPa",
+        "Elong": "22%",
+        "Hardness": "197 HB max"
+      },
+      "Chem": {
+        "C": "0.35 max",
+        "Mn": "0.29-1.06",
+        "P": "0.050 max",
+        "S": "0.058 max",
+        "Si": "0.10 min"
+      },
+      "SpecLabel": "ASTM A234 WPC",
+      "Form": "ButtWeld"
+    }
+  },
+  "ASTM A420": {
+    "WPL6": {
+      "SMYS_MPa": 240,
+      "Desc": "Low-temperature butt-weld fitting",
+      "Mech": {
+        "Yield": "240 MPa (35 ksi)",
+        "Tensile": "415-585 MPa",
+        "Elong": "30%",
+        "CVN": "27J @ -45 C"
+      },
+      "Chem": {
+        "C": "0.30 max",
+        "Mn": "0.50-1.35",
+        "P": "0.035 max",
+        "S": "0.040 max",
+        "Si": "0.15-0.40"
+      },
+      "SpecLabel": "ASTM A420 WPL6",
+      "Form": "ButtWeld"
+    }
+  },
+  "ASTM A860": {
+    "WPHY 42": {
+      "SMYS_MPa": 290,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "290 MPa (42 ksi)",
+        "Tensile": "415 MPa (60 ksi)",
+        "Elong": "22%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 42",
+      "Form": "ButtWeld"
+    },
+    "WPHY 46": {
+      "SMYS_MPa": 317,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "317 MPa (46 ksi)",
+        "Tensile": "435 MPa (63 ksi)",
+        "Elong": "22%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 46",
+      "Form": "ButtWeld"
+    },
+    "WPHY 52": {
+      "SMYS_MPa": 360,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "360 MPa (52 ksi)",
+        "Tensile": "455 MPa (66 ksi)",
+        "Elong": "20%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 52",
+      "Form": "ButtWeld"
+    },
+    "WPHY 60": {
+      "SMYS_MPa": 415,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "415 MPa (60 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "20%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 60",
+      "Form": "ButtWeld"
+    },
+    "WPHY 65": {
+      "SMYS_MPa": 450,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "535 MPa (77 ksi)",
+        "Elong": "18%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 65",
+      "Form": "ButtWeld"
+    },
+    "WPHY 70": {
+      "SMYS_MPa": 485,
+      "Desc": "High-strength butt-weld fitting",
+      "Mech": {
+        "Yield": "485 MPa (70 ksi)",
+        "Tensile": "570 MPa (82 ksi)",
+        "Elong": "17%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "P": "0.030 max",
+        "S": "0.010 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "ASTM A860 WPHY 70",
+      "Form": "ButtWeld"
+    }
+  },
+  "MSS SP-75": {
+    "WPHY 52": {
+      "SMYS_MPa": 360,
+      "Desc": "High-strength wrought fitting",
+      "Mech": {
+        "Yield": "360 MPa",
+        "Tensile": "455 MPa",
+        "Elong": "20%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "MSS SP-75 WPHY 52",
+      "Form": "ButtWeld"
+    },
+    "WPHY 60": {
+      "SMYS_MPa": 415,
+      "Desc": "High-strength wrought fitting",
+      "Mech": {
+        "Yield": "415 MPa",
+        "Tensile": "515 MPa",
+        "Elong": "20%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "MSS SP-75 WPHY 60",
+      "Form": "ButtWeld"
+    },
+    "WPHY 65": {
+      "SMYS_MPa": 450,
+      "Desc": "High-strength wrought fitting",
+      "Mech": {
+        "Yield": "450 MPa",
+        "Tensile": "535 MPa",
+        "Elong": "18%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "MSS SP-75 WPHY 65",
+      "Form": "ButtWeld"
+    },
+    "WPHY 70": {
+      "SMYS_MPa": 485,
+      "Desc": "High-strength wrought fitting",
+      "Mech": {
+        "Yield": "485 MPa",
+        "Tensile": "570 MPa",
+        "Elong": "17%",
+        "CVN": "Req. @ Temp"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.45",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "MSS SP-75 WPHY 70",
+      "Form": "ButtWeld"
+    }
+  },
+  "ASTM A105": {
+    "A105": {
+      "SMYS_MPa": 250,
+      "Desc": "Forged carbon steel fitting/flange",
+      "Mech": {
+        "Yield": "250 MPa (36 ksi)",
+        "Tensile": "485 MPa",
+        "Elong": "22%",
+        "Hardness": "187 HB max"
+      },
+      "Chem": {
+        "C": "0.35 max",
+        "Mn": "0.60-1.05",
+        "P": "0.035 max",
+        "S": "0.040 max",
+        "Si": "0.10-0.35"
+      },
+      "SpecLabel": "ASTM A105",
+      "Form": "Forged"
+    }
+  },
+  "ASTM A350": {
+    "LF2 Class 1": {
+      "SMYS_MPa": 250,
+      "Desc": "Low-temperature forged carbon steel",
+      "Mech": {
+        "Yield": "250 MPa (36 ksi)",
+        "Tensile": "485-655 MPa",
+        "Elong": "22%",
+        "CVN": "20J @ -46 C"
+      },
+      "Chem": {
+        "C": "0.30 max",
+        "Mn": "0.60-1.35",
+        "P": "0.035 max",
+        "S": "0.040 max",
+        "Si": "0.15-0.40"
+      },
+      "SpecLabel": "ASTM A350 LF2",
+      "Form": "Forged"
+    }
+  },
+  "ASTM A694": {
+    "F42": {
+      "SMYS_MPa": 290,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "290 MPa (42 ksi)",
+        "Tensile": "415 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "ASTM A694 F42",
+      "Form": "Forged"
+    },
+    "F46": {
+      "SMYS_MPa": 317,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "317 MPa (46 ksi)",
+        "Tensile": "435 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "ASTM A694 F46",
+      "Form": "Forged"
+    },
+    "F52": {
+      "SMYS_MPa": 360,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "360 MPa (52 ksi)",
+        "Tensile": "455 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "ASTM A694 F52",
+      "Form": "Forged"
+    },
+    "F60": {
+      "SMYS_MPa": 415,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "415 MPa (60 ksi)",
+        "Tensile": "515 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "ASTM A694 F60",
+      "Form": "Forged"
+    },
+    "F65": {
+      "SMYS_MPa": 450,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "535 MPa",
+        "Elong": "18%"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "ASTM A694 F65",
+      "Form": "Forged"
+    },
+    "F70": {
+      "SMYS_MPa": 485,
+      "Desc": "High-yield forged fitting/flange",
+      "Mech": {
+        "Yield": "485 MPa (70 ksi)",
+        "Tensile": "570 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.15-1.50",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "ASTM A694 F70",
+      "Form": "Forged"
+    }
+  },
+  "ASTM A403": {
+    "WP304": {
+      "SMYS_MPa": 205,
+      "Desc": "Austenitic stainless butt-weld fitting",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "30%",
+        "Hardness": "92 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-11.0"
+      },
+      "SpecLabel": "ASTM A403 WP304",
+      "Form": "ButtWeld"
+    },
+    "WP304L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon stainless butt-weld fitting",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "30%",
+        "Hardness": "92 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-12.0"
+      },
+      "SpecLabel": "ASTM A403 WP304L",
+      "Form": "ButtWeld"
+    },
+    "WP316": {
+      "SMYS_MPa": 205,
+      "Desc": "Mo-bearing stainless butt-weld fitting",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-14.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A403 WP316",
+      "Form": "ButtWeld"
+    },
+    "WP316L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon Mo-bearing stainless butt-weld fitting",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-15.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A403 WP316L",
+      "Form": "ButtWeld"
+    }
+  },
+  "ASTM A182": {
+    "F304": {
+      "SMYS_MPa": 205,
+      "Desc": "Austenitic stainless forged fitting",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-11.0"
+      },
+      "SpecLabel": "ASTM A182 F304",
+      "Form": "Forged"
+    },
+    "F304L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon stainless forged fitting",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "18.0-20.0",
+        "Ni": "8.0-12.0"
+      },
+      "SpecLabel": "ASTM A182 F304L",
+      "Form": "Forged"
+    },
+    "F316": {
+      "SMYS_MPa": 205,
+      "Desc": "Mo-bearing stainless forged fitting",
+      "Mech": {
+        "Yield": "205 MPa (30 ksi)",
+        "Tensile": "515 MPa (75 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.08 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-14.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A182 F316",
+      "Form": "Forged"
+    },
+    "F316L": {
+      "SMYS_MPa": 170,
+      "Desc": "Low-carbon Mo-bearing stainless forged fitting",
+      "Mech": {
+        "Yield": "170 MPa (25 ksi)",
+        "Tensile": "485 MPa (70 ksi)",
+        "Elong": "30%",
+        "Hardness": "95 HRB max"
+      },
+      "Chem": {
+        "C": "0.035 max",
+        "Mn": "2.00 max",
+        "P": "0.045 max",
+        "S": "0.030 max",
+        "Si": "1.00 max",
+        "Cr": "16.0-18.0",
+        "Ni": "10.0-15.0",
+        "Mo": "2.0-3.0"
+      },
+      "SpecLabel": "ASTM A182 F316L",
+      "Form": "Forged"
+    },
+    "F51": {
+      "SMYS_MPa": 450,
+      "Desc": "Duplex stainless forged fitting",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "620 MPa (90 ksi)",
+        "Elong": "25%",
+        "Hardness": "290 HB max"
+      },
+      "Chem": {
+        "C": "0.030 max",
+        "Mn": "2.00 max",
+        "P": "0.030 max",
+        "S": "0.020 max",
+        "Si": "1.00 max",
+        "Cr": "21.0-23.0",
+        "Ni": "4.5-6.5",
+        "Mo": "2.5-3.5",
+        "N": "0.08-0.20"
+      },
+      "SpecLabel": "ASTM A182 F51",
+      "Form": "Forged"
+    }
+  },
+  "MSS SP-97": {
+    "Integrally Reinforced": {
+      "SMYS_MPa": 240,
+      "Desc": "Integrally reinforced branch outlet fitting",
+      "Mech": {
+        "Yield": "Per selected material grade",
+        "Tensile": "Per selected material grade"
+      },
+      "Chem": {
+        "Note": "Per material grade and purchase specification"
+      },
+      "SpecLabel": "MSS SP-97",
+      "Form": "Forged"
+    }
+  }
+}

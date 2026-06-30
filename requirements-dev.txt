@@ -1,0 +1,14 @@
+# Development dependencies for ASME B31.8 Pipeline Designer V3.1
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Code quality
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+
+# Development tools
+ipykernel>=6.0.0
+jupyter>=1.0.0
