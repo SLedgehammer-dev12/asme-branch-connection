@@ -138,3 +138,29 @@ class TestSelectedFittingMatchesRecommendation:
         result = _evaluate_selected_fitting_against_recommendations("REINFORCING PAD", recs)
         assert not result["matches_decision_matrix"]
         assert len(result["matching_types"]) == 0
+
+
+class TestClauseTraceExtraction:
+    def test_extract_from_dict_list(self):
+        from ui.ui_decision_matrix import extract_clause_ids, format_clause_reference
+        traces = [
+            {"type": "clause", "ref": "Table 831.4.2-1", "note": "Decision bucket note"},
+            {"type": "clause", "ref": "Para 831.4.2(h)", "note": "Full encirclement"},
+            {"type": "heuristic", "ref": "Project Standard", "note": "Repo heuristic"}
+        ]
+        ids = extract_clause_ids(traces)
+        assert "Table 831.4.2-1" in ids
+        assert "831.4.2(h)" in ids
+
+        ref_info = format_clause_reference("831.4.2(h)")
+        assert isinstance(ref_info, dict)
+        assert "title" in ref_info
+        assert "description" in ref_info
+
+    def test_extract_from_string_list(self):
+        from ui.ui_decision_matrix import extract_clause_ids
+        traces = ["831.4.1 - Title", "831.4.2(a)"]
+        ids = extract_clause_ids(traces)
+        assert "831.4.1" in ids
+        assert "831.4.2(a)" in ids
+

@@ -35,10 +35,11 @@ if "logbook" not in st.session_state:
     st.session_state.logbook = LogbookManager()
 
 # --- UI SETUP ---
+icon_file = "assets/app_icon.png"
 st.set_page_config(
     page_title="ASME B31.8 Pipeline Designer V3.2",
     layout="wide",
-    page_icon="⚡",
+    page_icon=icon_file if __import__("os").path.exists(icon_file) else "⚡",
 )
 
 st.title("⚡ ASME B31.8 Pipeline Designer V3.2")
@@ -49,8 +50,12 @@ branch_data = st.session_state.branch_data
 
 # --- SIDEBAR & INPUTS ---
 with st.sidebar:
-    # Input rendering remains the same, but its output is captured by session state
-    design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm = render_sidebar_inputs()
+    # Sidebar girdi bileşenleri (ASME B31.8, API 5L, NACE MR0175)
+    (
+        design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
+        mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
+        facility_type, seam_type, location_class
+    ) = render_sidebar_inputs()
 
     st.markdown("---")
     st.header("📁 Veri Yönetimi")
@@ -66,6 +71,13 @@ with st.sidebar:
             "E": E,
             "T_factor": T_factor,
             "CA_mm": CA_mm,
+            "mill_tol_percent": mill_tol_percent,
+            "thickness_basis": thickness_basis,
+            "branch_angle_deg": branch_angle_deg,
+            "is_sour_service": is_sour_service,
+            "facility_type": facility_type,
+            "seam_type": seam_type,
+            "location_class": location_class,
             "run_data": run_data,
             "branch_data": branch_data
         }
@@ -99,6 +111,13 @@ with st.sidebar:
         E = data.get("E", E)
         T_factor = data.get("T_factor", T_factor)
         CA_mm = data.get("CA_mm", CA_mm)
+        mill_tol_percent = data.get("mill_tol_percent", mill_tol_percent)
+        thickness_basis = data.get("thickness_basis", thickness_basis)
+        branch_angle_deg = data.get("branch_angle_deg", branch_angle_deg)
+        is_sour_service = data.get("is_sour_service", is_sour_service)
+        facility_type = data.get("facility_type", facility_type)
+        seam_type = data.get("seam_type", seam_type)
+        location_class = data.get("location_class", location_class)
         run_data = data.get("run_data", run_data)
         branch_data = data.get("branch_data", branch_data)
         st.info("Yüklenen girdiler uygulandı.")
@@ -233,7 +252,13 @@ def run_application():
     # Step 1: Input & Initial Recommendations
     if st.session_state.step == 1:
         st.header("Adım 1: Parametre Girişi ve Ön Analiz")
-        render_step1_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data)
+        render_step1_recommendations(
+            P_val=P_val, P_unit=P_unit, F=F, E=E, T_factor=T_factor, CA_mm=CA_mm,
+            op_type=op_type, design_temp=design_temp, run_data=run_data, branch_data=branch_data,
+            mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
+            branch_angle_deg=branch_angle_deg, location_class=location_class,
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
+        )
 
     # Step 2: Core Analysis & Results Display
     elif st.session_state.step == 2:
@@ -241,7 +266,11 @@ def run_application():
 
         # 1. Core Calculation Execution
         dm_res = render_step2_recommendations(
-            P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data
+            P_val=P_val, P_unit=P_unit, F=F, E=E, T_factor=T_factor, CA_mm=CA_mm,
+            op_type=op_type, design_temp=design_temp, run_data=run_data, branch_data=branch_data,
+            mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
+            branch_angle_deg=branch_angle_deg, location_class=location_class,
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
         )
         st.session_state.dm_results = dm_res
 
@@ -258,7 +287,12 @@ def run_application():
 
         # 3. Fitting Configuration Inputs
         render_fitting_analysis(
-            dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data
+            dm_res=dm_res, P_val=P_val, P_unit=P_unit, F=F, E=E, T_factor=T_factor,
+            CA_mm=CA_mm, op_type=op_type, design_temp=design_temp,
+            run_data=run_data, branch_data=branch_data,
+            mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
+            branch_angle_deg=branch_angle_deg, location_class=location_class,
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
         )
 
     # Step 3: Completion/Review

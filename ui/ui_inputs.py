@@ -5,6 +5,7 @@ UI Girdi Bölümleri - ASME B31.8 Pipeline Designer V3.1
 import os
 import streamlit as st
 import fitting_database as db
+import engine
 from ui.ui_utils import get_wt_options, parse_wt
 
 PIPE_MATERIALS_DB = db.PIPE_MATERIALS_BY_STANDARD
@@ -12,52 +13,88 @@ NPS_OD_MM = db.NPS_OD_MM
 PIPE_DATA_FULL = db.PIPE_SCHEDULES
 
 
+
 def render_sidebar_inputs():
     """Sidebar girdi bölümlerini render eder."""
-    logo_path = "assets/tee.svg"  # Relative path since called from app.py
+    logo_path = "assets/app_icon.png" if os.path.exists("assets/app_icon.png") else "assets/tee.svg"
     if os.path.exists(logo_path):
-        st.image(logo_path, caption="Pipeline Engineering", use_container_width=True)
+        st.image(logo_path, caption="ASME B31.8 Pipeline Engineering", use_container_width=True)
 
     st.header("1. Operasyon ve Dizayn")
 
     design_temp = st.number_input(
         "Tasarım sıcaklığı (°C)",
         value=20.0,
-        step=10.0,
-        help="Minimum metal sıcaklığı (MDMT)",
+        step=5.0,
+        help="Minimum metal sıcaklığı (MDMT) ve maksimum işletme sıcaklığı",
     )
     op_type = st.radio(
         "İşlem tipi",
         ["New Construction", "Hot Tap"],
-        help="Yeni imalat mı yoksa canlı hat (Hot Tap) mı?",
+        help="Yeni imalat mı yoksa basınçlı canlı hat (Hot Tap) mı?",
     )
 
     c1, c2 = st.columns([2, 1])
     P_val = c1.number_input("Basınç", value=70.0, step=1.0)
-    P_unit = c2.selectbox("Birim", ["Barg", "MPa", "PSI"])
+    P_unit = c2.selectbox("Birim", ["Barg", "MPa", "PSI", "Bara"])
 
     st.divider()
-    F = st.selectbox(
-        "Design Factor (F)",
-        [0.72, 0.60, 0.50, 0.40],
-        0,
-        help="Class 1: 0.72 (Kırsal), Class 3: 0.50 (Yerleşim)",
-    )
-    st.caption(
-        "Not: ASME B31.8 Para 841.1.9'a göre kaynaklı tiplerde (fabricated) "
-        "F çarpanı Class 1-2 için maks. 0.60, Class 3-4 için maks. 0.50 ile sınırlandırılır."
-    )
-    E = st.number_input("Joint Factor (E)", value=1.0, step=0.1, max_value=1.0, help="Seamless/ERW için genelde 1.0")
-    T_factor = st.number_input(
-        "Sıcaklık faktörü (T)",
-        value=1.0,
-        step=0.1,
-        max_value=1.0,
-        help="120°C (250°F) altında 1.0",
-    )
-    CA_mm = st.number_input("Korozyon payı (mm)", value=1.5, min_value=0.0, step=0.1)
+    st.subheader("2. ASME B31.8 Faktörleri")
 
-    return design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm
+    # Konum Sınıfı ve Tesis Tipi
+    loc_list = list(engine.LOCATION_CLASSES.keys())
+    location_class = st.selectbox("Konum Sınıfı (Location Class)", loc_list, index=0)
+
+    facility_list = list(engine.FACILITY_TYPES.keys())
+    facility_type = st.selectbox("Tesis / İmalat Tipi", facility_list, index=0)
+
+    # Otomatik F faktörü hesabı
+    calc_F, f_warns = engine.evaluate_design_factor(location_class, facility_type)
+    for fw in f_warns:
+        st.caption(f"ℹ️ {fw}")
+
+    use_custom_F = st.checkbox("Özel F Faktörü Girişi", value=False)
+    if use_custom_F:
+        F = st.selectbox("Design Factor (F)", [0.80, 0.72, 0.60, 0.50, 0.40], index=1)
+    else:
+        F = calc_F
+        st.info(f"Tasarım Faktörü: **F = {F}**")
+
+    # Dikiş Tipi ve E Faktörü
+    seam_list = list(engine.JOINT_FACTORS.keys())
+    seam_type = st.selectbox("Kaynak / Dikiş Tipi (Seam Type)", seam_list, index=0)
+    E = engine.get_joint_factor(seam_type)
+    st.caption(f"Boyuna Kaynak Faktörü: **E = {E}**")
+
+    # Sıcaklık Faktörü (T) Otomatik
+    auto_T, t_warn = engine.get_temperature_derating_factor(design_temp)
+    if t_warn:
+        st.warning(t_warn)
+    use_custom_T = st.checkbox("Özel T Faktörü Girişi", value=False)
+    if use_custom_T:
+        T_factor = st.number_input("Sıcaklık Faktörü (T)", value=float(auto_T), step=0.01, max_value=1.0)
+    else:
+        T_factor = auto_T
+        st.caption(f"Sıcaklık Düşürme Faktörü: **T = {T_factor}** (Table 841.1.8-1)")
+
+    st.divider()
+    st.subheader("3. Tolerans ve Güvenlik")
+
+    c_ca, c_ang = st.columns(2)
+    CA_mm = c_ca.number_input("Korozyon Payı (mm)", value=1.5, min_value=0.0, step=0.1)
+    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=45.0, max_value=90.0, step=5.0, help="ASME B31.8 831.4.1(b)")
+
+    c_tol, c_basis = st.columns(2)
+    mill_tol_percent = c_tol.number_input("Hadde Tol. (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L / ASTM genelde %12.5")
+    thickness_basis = c_basis.selectbox("Hesap Bazı", ["nominal", "minimum"], index=0, format_func=lambda x: "Nominal" if x == "nominal" else "Minimum (-Tol)")
+
+    is_sour_service = st.checkbox("Ekşi Gaz Servisi (NACE MR0175 / Sour)", value=False, help="H2S içeren ortam için metalurji ve sertlik kontrolleri")
+
+    return (
+        design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
+        mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
+        facility_type, seam_type, location_class
+    )
 
 
 def render_pipe_inputs():
@@ -87,6 +124,10 @@ def render_pipe_inputs():
         r_nps = st.selectbox("Çap (NPS)", avail_nps, index=r_nps_idx, key="rn")
         r_wt_str = st.selectbox("Et kalınlığı", get_wt_options(r_nps, PIPE_DATA_FULL), key="rws")
 
+        seam_options = list(engine.JOINT_FACTORS.keys())
+        r_seam = st.selectbox("Dikiş / İmalat Tipi (Seam Type)", seam_options, index=0, key="r_seam")
+        r_E = engine.get_joint_factor(r_seam)
+
         run_data = {
             "OD_mm": NPS_OD_MM.get(r_nps, 0),
             "WT_mm": parse_wt(r_wt_str),
@@ -94,8 +135,10 @@ def render_pipe_inputs():
             "Grade": r_grd,
             "Standard": r_std,
             "NPS": r_nps,
+            "seam_type": r_seam,
+            "E": r_E,
         }
-        st.caption(f"OD: {run_data['OD_mm']} mm | WT: {run_data['WT_mm']} mm | SMYS: {run_data['SMYS_MPa']} MPa")
+        st.caption(f"OD: {run_data['OD_mm']} mm | WT: {run_data['WT_mm']} mm | SMYS: {run_data['SMYS_MPa']} MPa | E_h: {r_E:.2f}")
 
     with col_br:
         st.markdown("### Branşman (Branch)")
@@ -111,6 +154,9 @@ def render_pipe_inputs():
         b_nps = st.selectbox("Çap (NPS)", avail_nps, index=b_nps_idx, key="bn")
         b_wt_str = st.selectbox("Et kalınlığı", get_wt_options(b_nps, PIPE_DATA_FULL), key="bws")
 
+        b_seam = st.selectbox("Dikiş / İmalat Tipi (Seam Type)", seam_options, index=0, key="b_seam")
+        b_E = engine.get_joint_factor(b_seam)
+
         branch_data = {
             "OD_mm": NPS_OD_MM.get(b_nps, 0),
             "WT_mm": parse_wt(b_wt_str),
@@ -118,9 +164,11 @@ def render_pipe_inputs():
             "Grade": b_grd,
             "Standard": b_std,
             "NPS": b_nps,
+            "seam_type": b_seam,
+            "E": b_E,
         }
         st.caption(
-            f"OD: {branch_data['OD_mm']} mm | WT: {branch_data['WT_mm']} mm | SMYS: {branch_data['SMYS_MPa']} MPa"
+            f"OD: {branch_data['OD_mm']} mm | WT: {branch_data['WT_mm']} mm | SMYS: {branch_data['SMYS_MPa']} MPa | E_b: {b_E:.2f}"
         )
 
         st.divider()

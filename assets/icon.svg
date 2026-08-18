@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A192F"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="steelHoriz" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#64748B"/>
+      <stop offset="50%" stop-color="#F1F5F9"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="steelVert" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#64748B"/>
+      <stop offset="50%" stop-color="#F8FAFC"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="padGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="110" fill="url(#bgGrad)" stroke="#38BDF8" stroke-width="4"/>
+  <path d="M 60 120 H 452 M 60 180 H 452 M 60 240 H 452 M 60 300 H 452 M 60 360 H 452 M 60 420 H 452" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
+  <path d="M 120 60 V 452 M 180 60 V 452 M 240 60 V 452 M 300 60 V 452 M 360 60 V 452 M 420 60 V 452" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="1.5"/>
+  <rect x="65" y="280" width="382" height="100" rx="10" fill="url(#steelHoriz)" stroke="#CBD5E1" stroke-width="2"/>
+  <rect x="55" y="275" width="20" height="110" rx="4" fill="#475569" stroke="#94A3B8" stroke-width="2"/>
+  <rect x="437" y="275" width="20" height="110" rx="4" fill="#475569" stroke="#94A3B8" stroke-width="2"/>
+  <rect x="206" y="100" width="100" height="230" rx="6" fill="url(#steelVert)" stroke="#CBD5E1" stroke-width="2"/>
+  <rect x="198" y="90" width="116" height="20" rx="4" fill="#475569" stroke="#94A3B8" stroke-width="2"/>
+  <rect x="170" y="255" width="172" height="50" rx="9" fill="url(#padGrad)" stroke="#FDE68A" stroke-width="2.5"/>
+  <circle cx="290" cy="280" r="5" fill="#0F172A" stroke="#FEF08A" stroke-width="1.5"/>
+  <rect x="156" y="395" width="200" height="42" rx="8" fill="#0F172A" stroke="#38BDF8" stroke-width="2"/>
+  <text x="256" y="423" fill="#F0F9FF" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="22" font-weight="bold" text-anchor="middle">ASME B31.8</text>
+</svg>

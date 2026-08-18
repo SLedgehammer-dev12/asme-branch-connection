@@ -114,3 +114,23 @@ def test_export_to_file_creates_json(tmp_path):
 
     assert data["total_runs"] == 1
     assert len(data["run_history"]) == 1
+
+
+def test_get_entry_count(tmp_path):
+    log_path = tmp_path / "project_logbook.json"
+    manager = LogbookManager(log_file=str(log_path))
+    assert manager.get_entry_count() == 0
+
+    manager.add_run(
+        design_temp=20.0,
+        pressure=2.0,
+        pressure_unit="MPa",
+        design_factors={"F": 0.72, "E": 0.85, "T": 1.0},
+        corrosion_allowance=3.0,
+        run_fitting_data={"OD_mm": 323.9},
+        branch_fitting_data={"OD_mm": 168.3},
+        analysis_result={"status": "OK", "Recommendations": []},
+        status="OK",
+    )
+    assert manager.get_entry_count() == 1
+

@@ -15,10 +15,19 @@ from ui.ui_decision_matrix import (
 )
 
 
-def render_step1_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data):
+def render_step1_recommendations(
+    P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data,
+    mill_tol_percent=12.5, thickness_basis="nominal", branch_angle_deg=90.0,
+    location_class=None, facility_type=None, seam_type=None, is_sour_service=False
+):
     """Aşama 1: Karar matrisi önerilerini render eder."""
     if st.button("AŞAMA 1: Tavsiyeleri al (çözüm matrisi)", type="primary", use_container_width=True):
-        val_errors, val_warnings = InputValidator.validate(P_val, P_unit, F, E, T_factor, CA_mm, run_data, branch_data)
+        val_errors, val_warnings = InputValidator.validate(
+            P_val=P_val, P_unit=P_unit, F=F, E=E, T=T_factor, CA_mm=CA_mm,
+            run_data=run_data, branch_data=branch_data,
+            mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
+            branch_angle_deg=branch_angle_deg
+        )
 
         for warning_text in val_warnings:
             st.warning(f"⚠️ {warning_text}")
@@ -28,18 +37,24 @@ def render_step1_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
                 st.error(f"❌ {error_text}")
         else:
             eng = PipelineExpertEngine(
-                P_val,
-                P_unit,
-                F,
-                E,
-                T_factor,
-                CA_mm,
-                op_type,
-                0.0,
-                {"has_pad": False},
-                design_temp,
-                240.0,
+                P_val=P_val,
+                P_unit=P_unit,
+                F=F,
+                E=E,
+                T=T_factor,
+                CA_mm=CA_mm,
+                op_type=op_type,
+                weld_legs=0.0,
+                pad_props={"has_pad": False},
+                design_temp=design_temp,
+                fitting_smys=240.0,
                 d_hole_type="OD",
+                mill_tol_percent=mill_tol_percent,
+                thickness_basis=thickness_basis,
+                branch_angle_deg=branch_angle_deg,
+                location_class=location_class,
+                facility_type=facility_type,
+                seam_type=seam_type,
             )
             dm_res = eng.evaluate_decision_matrix(run_data, branch_data)
             show_engine_messages(dm_res.get("messages", []))
@@ -58,6 +73,13 @@ def render_step1_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
                     "CA_mm": CA_mm,
                     "op_type": op_type,
                     "design_temp": design_temp,
+                    "mill_tol_percent": mill_tol_percent,
+                    "thickness_basis": thickness_basis,
+                    "branch_angle_deg": branch_angle_deg,
+                    "location_class": location_class,
+                    "facility_type": facility_type,
+                    "seam_type": seam_type,
+                    "is_sour_service": is_sour_service,
                 }
                 st.session_state.run_data = run_data
                 st.session_state.branch_data = branch_data
@@ -65,7 +87,11 @@ def render_step1_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
                 st.rerun()
 
 
-def render_step2_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data):
+def render_step2_recommendations(
+    P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data,
+    mill_tol_percent=12.5, thickness_basis="nominal", branch_angle_deg=90.0,
+    location_class=None, facility_type=None, seam_type=None, is_sour_service=False
+):
     """Aşama 2: Karar matrisi sonuçlarını tekrar render eder."""
     st.success("✅ Aşama 1 tamamlandı. Hat ve stres profili yeterli.")
 
@@ -79,7 +105,12 @@ def render_step2_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
 
     st.markdown("---")
 
-    val_errors, val_warnings = InputValidator.validate(P_val, P_unit, F, E, T_factor, CA_mm, run_data, branch_data)
+    val_errors, val_warnings = InputValidator.validate(
+        P_val=P_val, P_unit=P_unit, F=F, E=E, T=T_factor, CA_mm=CA_mm,
+        run_data=run_data, branch_data=branch_data,
+        mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
+        branch_angle_deg=branch_angle_deg
+    )
 
     if val_errors:
         for error_text in val_errors:
@@ -90,17 +121,23 @@ def render_step2_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         st.warning(f"⚠️ {warning_text}")
 
     temp_eng = PipelineExpertEngine(
-        P_val,
-        P_unit,
-        F,
-        E,
-        T_factor,
-        CA_mm,
-        op_type,
-        {"inner": 0.0, "outer": 0.0},
-        {"has_pad": False},
-        design_temp,
-        240.0,
+        P_val=P_val,
+        P_unit=P_unit,
+        F=F,
+        E=E,
+        T=T_factor,
+        CA_mm=CA_mm,
+        op_type=op_type,
+        weld_legs={"inner": 0.0, "outer": 0.0},
+        pad_props={"has_pad": False},
+        design_temp=design_temp,
+        fitting_smys=240.0,
+        mill_tol_percent=mill_tol_percent,
+        thickness_basis=thickness_basis,
+        branch_angle_deg=branch_angle_deg,
+        location_class=location_class,
+        facility_type=facility_type,
+        seam_type=seam_type,
     )
     dm_res = temp_eng.evaluate_decision_matrix(run_data, branch_data)
 
@@ -113,6 +150,13 @@ def render_step2_recommendations(P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         "CA_mm": CA_mm,
         "op_type": op_type,
         "design_temp": design_temp,
+        "mill_tol_percent": mill_tol_percent,
+        "thickness_basis": thickness_basis,
+        "branch_angle_deg": branch_angle_deg,
+        "location_class": location_class,
+        "facility_type": facility_type,
+        "seam_type": seam_type,
+        "is_sour_service": is_sour_service,
     }
 
     if dm_res["status"] == "FAIL":

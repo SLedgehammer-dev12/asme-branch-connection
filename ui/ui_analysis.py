@@ -7,7 +7,9 @@ from engine import (
     PipelineExpertEngine,
     FittingMaterials,
     _evaluate_selected_fitting_against_recommendations,
+    evaluate_sour_service_compliance,
 )
+from ui.ui_diagram import create_cross_section_figure
 from ui.ui_utils import show_engine_messages, render_trace_block
 import fitting_database as db
 
@@ -15,12 +17,12 @@ FITTING_MATERIALS_DB = db.FITTING_MATERIALS_BY_STANDARD
 
 
 def render_analysis_results(analysis_results, dm_res, run_data, branch_data, selected_fitting, eng_kwargs):
-    """Analiz sonuçlarını (alan telafisi, muafiyet, rapor) gösterir."""
+    """Analiz sonuçlarını (alan telafisi, 2D kesit, kaynak denetimi, hidrotest, metalurji, rapor) gösterir."""
     if not analysis_results or analysis_results.get("status") != "OK":
         return
 
     st.markdown("---")
-    st.subheader("📊 Alan Telafisi Sonuçları")
+    st.subheader("📊 ASME B31.8 Alan Telafisi ve Mühendislik Analizi")
 
     ar = analysis_results
     is_exempt = ar.get("is_exempt", False)
@@ -34,24 +36,37 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     T_factor = eng_kwargs.get("T_factor", 1.0)
     CA_mm = eng_kwargs.get("CA_mm", 0.0)
     design_temp = eng_kwargs.get("design_temp", 20.0)
+    branch_angle_deg = eng_kwargs.get("branch_angle_deg", 90.0)
+    mill_tol_percent = eng_kwargs.get("mill_tol_percent", 12.5)
+    thickness_basis = eng_kwargs.get("thickness_basis", "nominal")
+    is_sour = eng_kwargs.get("is_sour_service", False)
 
     # Durum kartı
     if is_exempt:
         st.success(
-            f"✅ **Standart ürün muafiyeti:** {selected_fitting} tipi için ASME B31.8 Para 831.4.2 "
+            f"✅ **Standart Ürün Muafiyeti:** {selected_fitting} tipi için ASME B31.8 Para 831.4.2 "
             "gereği alan telafisi üretici garantisi altındadır. İlave takviye hesabı opsiyoneldir."
         )
     elif not need_reinf:
-        st.success(f"✅ **Yeterli:** Mevcut alan ({ar['A_avail']:.0f} mm²), gerekli alanı ({ar['A_req']:.0f} mm²) karşılamaktadır.")
+        st.success(f"✅ **Yeterli (PASS):** Mevcut alan ({ar['A_avail']:.0f} mm²), gerekli alanı ({ar['A_req']:.0f} mm²) tam olarak karşılamaktadır.")
     else:
         st.error(
-            f"❌ **Takviye gerekli!** Eksik alan: {missing:.0f} mm². "
+            f"❌ **Takviye Gerekli (FAIL):** Eksik alan: {missing:.0f} mm². "
             f"Mevcut: {ar['A_avail']:.0f} mm² < Gerekli: {ar['A_req']:.0f} mm²"
+        )
+
+    # Otomatik Pad Boyutlandırma Önerisi
+    auto_pad = ar.get("auto_pad", {})
+    if need_reinf and auto_pad.get("needed"):
+        st.warning(
+            f"💡 **Otomatik Takviye Pedi Önerisi (Auto-Size Pad):**\n"
+            f"Eksik {missing:.0f} mm² alanı kapatmak için gereken minimum Takviye Pedi: "
+            f"**T_pad = {auto_pad['T_pad_min']} mm**, **D_pad = {auto_pad['D_pad_min']} mm** (W_p = {auto_pad['W_p_min']} mm)."
         )
 
     # Ana metrikler
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Gerekli Alan (A_req)", f"{ar['A_req']:.0f} mm²")
+    col1.metric("Gerekli Alan (A_req)", f"{ar['A_req']:.0f} mm²", help=f"Açı: {branch_angle_deg}° (sin β = {ar.get('d_opening', ar.get('d_hole',0)):.1f} mm açıklık)")
     col2.metric("Mevcut Alan (A_avail)", f"{ar['A_avail']:.0f} mm²",
                 delta=f"{'✅ Yeterli' if not need_reinf else '❌ Eksik ' + str(int(missing)) + ' mm²'}")
     col3.metric("Delik Çapı (d_hole)", f"{ar['d_hole']:.1f} mm")
@@ -60,8 +75,8 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     # Alan bileşenleri
     st.markdown("#### Alan Bileşenleri")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("A1 (Ana boru)", f"{ar['A1']:.0f} mm²",
-              help="Ana hat fazlalık alanı. Hot tap'te güvenlik için 0 alınır.")
+    c1.metric("A1 (Ana Boru)", f"{ar['A1']:.0f} mm²",
+              help="Ana hat fazlalık alanı. Hot tap operasyonunda güvenlik için 0 alınır.")
     c2.metric("A2 (Branşman)", f"{ar['A2']:.0f} mm²",
               help="Branşman borusu fazlalık alanı")
     c3.metric("A3 (Kaynak)", f"{ar['A3']:.0f} mm²",
@@ -69,23 +84,79 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     c4.metric("A4 (Pad/Sleeve)", f"{ar['A4']:.0f} mm²",
               help="Takviye pedi veya manşon katkısı")
 
-    # Detaylı hesap izi
-    with st.expander("📐 Detaylı Hesap İzi", expanded=False):
+    # 2D Dinamik Kesit Çizimi Sekmesi
+    tab_diag, tab_calc, tab_safety, tab_metal = st.tabs([
+        "📐 2D Ölçekli Kesit Çizimi",
+        "📑 Hesap İzi ve Kalınlıklar",
+        "🛡️ Kaynak & Saha Testi Güvenliği",
+        "🔬 Metalurji & Sour Service",
+    ])
+
+    with tab_diag:
+        st.markdown("##### ASME B31.8 Alan Telafisi 2D Kesit Görselleştirmesi")
+        pad_p = eng_kwargs.get("pad_props", {})
+        weld_l = eng_kwargs.get("weld_legs", {})
+        try:
+            fig_cross = create_cross_section_figure(run_data, branch_data, ar, pad_p, weld_l)
+            st.plotly_chart(fig_cross, use_container_width=True)
+        except Exception as e:
+            st.warning(f"2D Kesit şeması çizilirken hata oluştu: {e}")
+
+    with tab_calc:
         col_a, col_b = st.columns(2)
         with col_a:
-            st.markdown("**Takviye Limitleri:**")
+            st.markdown("**Takviye Bölgesi Limitleri:**")
             st.markdown(f"- L₁ = 2.5 × T_h = {ar['L1']:.2f} mm")
             st.markdown(f"- L₂ = 2.5 × T_b + T_s = {ar['L2']:.2f} mm")
             st.markdown(f"- **L_eff = min(L₁, L₂) = {ar['L_eff']:.2f} mm**")
-            st.markdown(f"- f_branch = {ar['f_branch']:.3f}")
-            st.markdown(f"- f_sleeve = {ar['f_sleeve']:.3f}")
+            st.markdown(f"- f_branch = {ar['f_branch']:.3f} | f_sleeve = {ar['f_sleeve']:.3f}")
+            st.markdown(f"- Branş Açısı β = {branch_angle_deg}° (Açıklık d_opening = {ar.get('d_opening', ar.get('d_hole',0)):.1f} mm)")
         with col_b:
-            st.markdown("**Kalınlık Bilgileri:**")
-            st.markdown(f"- t_req (ana hat) = {ar['t_h_mm']:.3f} mm")
-            st.markdown(f"- t_req (branşman) = {ar['t_b_mm']:.3f} mm")
-            st.markdown(f"- WT_net (ana hat) = {ar['wt_h_net']:.3f} mm")
-            st.markdown(f"- WT_net (branşman) = {ar['wt_b_net']:.3f} mm")
-            st.markdown(f"- W_p (pad genişliği) = {ar['W_p']:.2f} mm")
+            st.markdown(f"**Kalınlık ve Dikiş Analizi ({thickness_basis.upper()} Baz):**")
+            st.markdown(f"- t_req (Ana Hat) = {ar['t_h_mm']:.3f} mm (E_h = {ar.get('E_h', 1.0):.2f}) | Satın Alma: **{ar.get('t_order_h_mm', 0):.3f} mm**")
+            st.markdown(f"- t_req (Branşman) = {ar['t_b_mm']:.3f} mm (E_b = {ar.get('E_b', 1.0):.2f}) | Satın Alma: **{ar.get('t_order_b_mm', 0):.3f} mm**")
+            st.markdown(f"- WT_net (Ana Hat) = {ar['wt_h_net']:.3f} mm (Hadde tol: %{mill_tol_percent})")
+            st.markdown(f"- WT_net (Branşman) = {ar['wt_b_net']:.3f} mm (Hadde tol: %{mill_tol_percent})")
+            st.markdown(f"- W_p (Efektif Pad Genişliği) = {ar['W_p']:.2f} mm")
+
+    with tab_safety:
+        st.markdown("##### ASME B31.8 Fig. I-4 Kaynak Boyutlandırma ve Saha Testi")
+        min_w = ar.get("min_welds", {})
+        hydro = ar.get("hydrotest", {})
+        
+        c_w1, c_w2 = st.columns(2)
+        with c_w1:
+            st.info(
+                f"**Kaynak Boyutlandırma Kontrolü (ASME B31.8 Fig. I-4):**\n"
+                f"- Min. Kaynak Boğazı ($t_c$): **{min_w.get('t_c_min',0):.1f} mm**\n"
+                f"- Önerilen Min. Branşman Bacağı ($w_{{inner}}$): **{min_w.get('w_inner_min',0):.1f} mm**\n"
+                f"- Önerilen Min. Pad Bacağı ($w_{{outer}}$): **{min_w.get('w_outer_min',0):.1f} mm**"
+            )
+        with c_w2:
+            st.info(
+                f"**Hidrostatik Saha Testi Analizi (Para 841.3.2):**\n"
+                f"- Test Basıncı: **{hydro.get('P_test_bar',0):.1f} bar** ({hydro.get('P_test_MPa',0):.2f} MPa, 1.25x MAOP)\n"
+                f"- Test Gerilmesi: **{hydro.get('test_stress_MPa',0):.1f} MPa** (%{hydro.get('stress_smys_ratio',0)*100:.1f} SMYS)\n"
+                f"- Durum: **{hydro.get('status','OK')}**"
+            )
+        if ar.get("weep_hole_spec"):
+            st.caption(f"ℹ️ **Vent / Weep Hole Standardı:** {ar['weep_hole_spec']}")
+
+    with tab_metal:
+        st.markdown("##### NACE MR0175 / ISO 15156 Ekşi Gaz ve Karbon Eşdeğeri")
+        pipe_chem = {"C": 0.12, "Mn": 1.20, "Si": 0.30, "S": 0.003, "P": 0.015}
+        pipe_mech = {"Hardness": "197 HB max"}
+        sour_res = evaluate_sour_service_compliance(pipe_chem, pipe_mech, is_sour_service=is_sour, wt_mm=ar["wt_h_net"])
+        
+        cm1, cm2 = st.columns(2)
+        with cm1:
+            st.write(f"**Karbon Eşdeğeri (CE_IIW):** `{sour_res['ce_data']['CE_IIW']}` (Maks. 0.43)")
+            st.write(f"**Ito-Bessyo (P_cm):** `{sour_res['ce_data']['P_cm']}` (Maks. 0.22)")
+            st.write(f"**Ön Isıtma Gerekli mi?:** `{'Evet (Preheat Zorunlu)' if sour_res['ce_data']['preheat_needed'] else 'Hayır (Standart)'}`")
+        with cm2:
+            st.write(f"**Ekşi Gaz Uygunluğu (NACE MR0175):** `{'✅ UYGUN' if sour_res['compliant'] else '❌ UYGUN DEĞİL'}`")
+            st.write(f"**PWHT (Isıl İşlem) Şartı:** `{'ZORUNLU' if sour_res['pwht_required'] else 'Gerekli Değil'}`")
+            st.write(f"**Maks. Sertlik Limiti:** `22 HRC / 248 HV`")
 
     # Fitting seçimi vs DM karşılaştırması
     if dm_res and selected_fitting:
@@ -94,7 +165,7 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         )
         st.markdown("#### 🔍 Karar Matrisi Uyumluluk Kontrolü")
         if comparison["matches_decision_matrix"]:
-            st.success(f"✅ Seçilen fitting ({selected_fitting}), karar matrisi önerileri ile uyumludur.")
+            st.success(f"✅ Seçilen fitting ({selected_fitting}), karar matrisi önerileri ile tam uyumludur.")
         else:
             st.warning(
                 f"⚠️ Seçilen fitting ({selected_fitting}), karar matrisi önerileri arasında bulunmamaktadır. "
@@ -105,14 +176,14 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     # Mesajlar
     messages = ar.get("messages", [])
     if messages:
-        with st.expander("📋 Sistem Mesajları ve Uyarılar", expanded=len([m for m in messages if m.get("level") == "warning"]) > 0):
+        with st.expander("📋 Sistem Mesajları ve Güvenlik Uyarıları", expanded=len([m for m in messages if m.get("level") == "warning"]) > 0):
             show_engine_messages(messages)
 
     # Clause trace
     render_trace_block(
         ar.get("ClauseTrace", []),
         ar.get("Assumptions", []),
-        title="📜 Clause Trace ve Varsayımlar",
+        title="📜 Clause Trace ve Standart Referansları",
     )
 
     # Final Action
@@ -121,7 +192,13 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
 
     # HTML Rapor indirme
     st.markdown("---")
-    st.subheader("📄 Rapor İndir")
+    st.subheader("📄 Profesyonel Mühendislik Hesap Dosyası (Calculation Dossier)")
+
+    c_p1, c_p2, c_p3 = st.columns(3)
+    proj_name = c_p1.text_input("Proje Adı", value="Doğalgaz Boru Hattı Branşman Tasarımı")
+    doc_no = c_p2.text_input("Doküman No", value="CALC-ASME-B31.8-001")
+    prep_by = c_p3.text_input("Hazırlayan Mühendis", value="Boru Hattı Tasarım Mühendisi")
+
     try:
         eng = PipelineExpertEngine(
             P_val=P_val,
@@ -131,18 +208,30 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             T=T_factor,
             CA_mm=CA_mm,
             op_type=op_type,
-            weld_legs={"inner": 0.0, "outer": 0.0},
-            pad_props={"has_pad": False},
+            weld_legs=eng_kwargs.get("weld_legs", {"inner": 0.0, "outer": 0.0}),
+            pad_props=eng_kwargs.get("pad_props", {"has_pad": False}),
             design_temp=design_temp,
-            fitting_smys=240.0,
+            fitting_smys=eng_kwargs.get("fitting_smys", 240.0),
+            mill_tol_percent=mill_tol_percent,
+            thickness_basis=thickness_basis,
+            branch_angle_deg=branch_angle_deg,
+            location_class=eng_kwargs.get("location_class"),
+            facility_type=eng_kwargs.get("facility_type"),
+            seam_type=eng_kwargs.get("seam_type"),
         )
-        html_report = eng.generate_html_report(run_data, branch_data, ar)
+        html_report = eng.generate_html_report(
+            run_data, branch_data, ar,
+            project_name=proj_name,
+            doc_no=doc_no,
+            prepared_by=prep_by
+        )
         st.download_button(
-            label="📥 HTML Raporu İndir",
+            label="📥 Profesyonel Hesap Dosyasını (HTML / PDF Yazdırılabilir) İndir",
             data=html_report,
-            file_name=f"ASME_B31.8_Rapor_{run_data.get('NPS', '')}x{branch_data.get('NPS', '')}.html",
+            file_name=f"{doc_no}_ASME_B31.8_{run_data.get('NPS', '')}x{branch_data.get('NPS', '')}.html",
             mime="text/html",
             use_container_width=True,
+            type="primary"
         )
     except Exception as e:
         st.error(f"Rapor oluşturulamadı: {e}")
@@ -155,7 +244,7 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         st.rerun()
 
 
-def render_fitting_analysis(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data):
+def render_fitting_analysis(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data, **extra_kwargs):
     """Fitting seçimi ve alan analizini render eder."""
     already_computed = st.session_state.get("analysis_results") is not None
 
@@ -163,13 +252,13 @@ def render_fitting_analysis(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_typ
 
     if already_computed:
         with st.expander("⚙️ Bağlantı Yapılandırmasını Düzenle", expanded=False):
-            _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data)
+            _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data, **extra_kwargs)
     else:
         st.subheader("2. Fiziksel Bağlantı Yapılandırması")
-        _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data)
+        _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data, **extra_kwargs)
 
 
-def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data):
+def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data, **extra_kwargs):
     """Fitting seçim formunu render eden dahili fonksiyon."""
 
     c1, c2 = st.columns(2)
@@ -190,7 +279,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         "A_req delik çapı (d_hole) kabulü",
         ["OD", "ID"],
         index=0,
-        format_func=lambda x: "Dış çap (OD) - Set-In" if x == "OD" else "İç çap (ID) - Set-On",
+        format_func=lambda x: "Dış çap (OD) - Set-In (Muhafazakar)" if x == "OD" else "İç çap (ID) - Set-On",
         help="Alan hesabında (A_req) kullanılacak d_hole değeri.",
     )
 
@@ -213,18 +302,18 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             cw1, cw2 = st.columns(2)
             w_inner = cw1.number_input(
                 "İç kaynak bacak boyu (branşman - pad/header) [mm]",
-                value=5.0,
+                value=6.0,
                 step=0.5,
             )
             w_outer = cw2.number_input(
                 "Dış kaynak bacak boyu (pad - ana hat) [mm]",
-                value=5.0,
+                value=6.0,
                 step=0.5,
             )
             weld_legs["inner"] = w_inner
             weld_legs["outer"] = w_outer
         else:
-            w_inner = st.number_input("Branşman kaynak bacak boyu [mm]", value=5.0, step=0.5)
+            w_inner = st.number_input("Branşman kaynak bacak boyu [mm]", value=6.0, step=0.5)
             weld_legs["inner"] = w_inner
             weld_legs["outer"] = 0.0
 
@@ -233,9 +322,9 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         st.markdown("##### Takviye pedi / manşon boyutları")
         cp1, cp2 = st.columns(2)
         with cp1:
-            pad_t = st.number_input("Pad/Sleeve et kalınlığı (mm)", value=10.0, step=1.0)
+            pad_t = cp1.number_input("Pad/Sleeve et kalınlığı (mm)", value=10.0, step=1.0)
         with cp2:
-            pad_d = st.number_input("Pad dış çapı / genişliği (mm)", value=300.0, step=10.0)
+            pad_d = cp2.number_input("Pad dış çapı / genişliği (mm)", value=350.0, step=10.0)
 
         pad_props["T_pad"] = pad_t
         pad_props["D_pad"] = pad_d
@@ -278,22 +367,42 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             help="Alan hesabında kullanılır.",
         )
 
+    # Session state'e kaydetmek üzere kwargs topla
+    st.session_state.current_eng_kwargs = {
+        "P_val": P_val, "P_unit": P_unit, "F": F, "E": E, "T_factor": T_factor,
+        "CA_mm": CA_mm, "op_type": op_type, "design_temp": design_temp,
+        "weld_legs": weld_legs, "pad_props": pad_props, "fitting_smys": fitting_smys,
+        "mill_tol_percent": extra_kwargs.get("mill_tol_percent", 12.5),
+        "thickness_basis": extra_kwargs.get("thickness_basis", "nominal"),
+        "branch_angle_deg": extra_kwargs.get("branch_angle_deg", 90.0),
+        "location_class": extra_kwargs.get("location_class"),
+        "facility_type": extra_kwargs.get("facility_type"),
+        "seam_type": extra_kwargs.get("seam_type"),
+        "is_sour_service": extra_kwargs.get("is_sour_service", False),
+    }
+
     if st.button("AŞAMA 2: Alan hesabını tamamla", type="primary", use_container_width=True):
         eng = PipelineExpertEngine(
-            P_val,
-            P_unit,
-            F,
-            E,
-            T_factor,
-            CA_mm,
-            op_type,
-            weld_legs,
-            pad_props,
-            design_temp,
-            fitting_smys,
+            P_val=P_val,
+            P_unit=P_unit,
+            F=F,
+            E=E,
+            T=T_factor,
+            CA_mm=CA_mm,
+            op_type=op_type,
+            weld_legs=weld_legs,
+            pad_props=pad_props,
+            design_temp=design_temp,
+            fitting_smys=fitting_smys,
             d_hole_type=d_hole_type,
+            mill_tol_percent=extra_kwargs.get("mill_tol_percent", 12.5),
+            thickness_basis=extra_kwargs.get("thickness_basis", "nominal"),
+            branch_angle_deg=extra_kwargs.get("branch_angle_deg", 90.0),
+            location_class=extra_kwargs.get("location_class"),
+            facility_type=extra_kwargs.get("facility_type"),
+            seam_type=extra_kwargs.get("seam_type"),
         )
         res = eng.analyze(run_data, branch_data, selected_fitting)
-        # Sonuçları session state'e kaydet ve göster
         st.session_state.analysis_results = res
         st.rerun()
+

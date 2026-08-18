@@ -164,6 +164,17 @@ class LogbookManager:
             self._load_logbook()
         return self.logbook["run_history"]
     
+    def get_entry_count(self) -> int:
+        """
+        Get the total number of entries in the logbook.
+        
+        Returns:
+            int: Number of entries.
+        """
+        if self.logbook is None:
+            self._load_logbook()
+        return len(self.logbook.get("run_history", []))
+
     def clear(self) -> bool:
         """
         Clear the logbook and reset it to empty state.

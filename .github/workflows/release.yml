@@ -1,0 +1,195 @@
+name: Build and Release ASME B31.8 Designer
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version tag (e.g. v3.2.0)"
+        required: true
+        default: "v3.2.0"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Run Automated Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Execute Pytest Suite
+        run: |
+          pytest -v
+
+  build-windows:
+    name: Build Windows x64 Executable
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pillow
+
+      - name: Build Standalone Executable (Anti-Malware Safe)
+        run: |
+          python build_exe.py
+
+      - name: Package Windows Release Archive
+        shell: pwsh
+        run: |
+          $ver = if ("${{ github.ref_name }}" -like "v*") { "${{ github.ref_name }}" } else { "${{ github.event.inputs.version }}" }
+          if (-not $ver) { $ver = "v3.2.0" }
+          $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
+          Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
+          Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            ASME_Branch_Connection_*_Windows_x64.zip
+            ASME_Branch_Connection_*_Windows_x64.zip.sha256
+
+  build-macos:
+    name: Build macOS Apple Silicon (ARM64)
+    needs: test
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pillow
+
+      - name: Build Native ARM64 Binary
+        run: |
+          python3 build_exe.py
+
+      - name: Apply Ad-hoc Codesign (Gatekeeper Compatibility)
+        run: |
+          codesign --force --deep --sign - dist/ASME_Branch_Connection_V3
+          chmod +x dist/ASME_Branch_Connection_V3
+
+      - name: Package macOS Apple Silicon Release
+        run: |
+          VER="${{ github.ref_name }}"
+          if [[ -z "$VER" || "$VER" != v* ]]; then
+            VER="${{ github.event.inputs.version }}"
+          fi
+          if [[ -z "$VER" ]]; then
+            VER="v3.2.0"
+          fi
+          ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
+          
+          cat << "EOF" > dist/Start_ASME_Tool.command
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+xattr -d com.apple.quarantine "$DIR/ASME_Branch_Connection_V3" 2>/dev/null || true
+exec "$DIR/ASME_Branch_Connection_V3"
+EOF
+          chmod +x dist/Start_ASME_Tool.command
+          
+          cd dist
+          zip -r "../${ZIP_NAME}" ASME_Branch_Connection_V3 Start_ASME_Tool.command
+          cd ..
+          shasum -a 256 "${ZIP_NAME}" > "${ZIP_NAME}.sha256"
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: |
+            ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip
+            ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip.sha256
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p final-release
+          find release-artifacts -type f -name "*.zip*" -exec cp {} final-release/ \;
+          ls -la final-release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: final-release/*
+          tag_name: ${{ github.ref_name || github.event.inputs.version || v3.2.0 }}
+          name: ASME B31.8 Pipeline Designer ${{ github.ref_name || github.event.inputs.version || v3.2.0 }}
+          body: |
+            # 🚀 ASME B31.8 Pipeline Branch Connection Design Tool
+
+            Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2020**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
+
+            ### 📦 İndirilebilir Paketler (Downloads):
+            * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
+            * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+
+            ### ✨ Yenilikler ve Geliştirmeler:
+            * **ASME B31.8 Standart Faktörleri**:
+              * Tablo 841.1.8-1 Sıcaklık Düşürme Faktörü ($T$) otomatik interpolasyonu.
+              * Tablo 841.1.7-1 Boyuna Dikiş Faktörü ($E_h$ ve $E_b$) bağımsız seçimi (Seamless, ERW, LSAW, SSAW, EFW).
+              * Tablo 841.1.6-1 & Para 841.1.9 Konum Sınıfı (Class 1-4) ve Tesis Tipi ($F$) limitleri.
+              * Hadde İmalat Toleransı (API 5L %12.5) ve Nominal vs Minimum Kalınlık Bazı Analizi.
+            * **Geometri, Kaynak & Güvenlik**:
+              * $45^\circ \le eta \le 90^\circ$ Açılı (Lateral) Branşman Alan Telafisi.
+              * ASME B31.8 Fig. I-4 Kaynak Boğazı ($t_c$) ve Bacak Boyu Denetimleri.
+              * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı ($WT < 4.8 mm$).
+              * Otomatik Takviye Pedi Boyutlandırma Motoru (Auto-Size Pad).
+              * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi ($1.25x MAOP$).
+            * **Görselleştirme, Metalurji & Raporlama**:
+              * Dinamik 2D Ölçekli Kesit Çizimi (Plotly - $A_1, A_2, A_3, A_4$ renklendirilmiş).
+              * NACE MR0175 / ISO 15156 Ekşi Gaz (Sour Service), Karbon Eşdeğeri ($CE_{IIW}, P_{cm}$) ve PWHT Analizi.
+              * İmzalanabilir Resmi Mühendislik Hesap Raporu (A4 Printable HTML Dossier).
+              * Modern Yüksek Çözünürlüklü Uygulama İkonu.
+
+            ---
+            *Güvenlik ve Bütünlük*: Tüm paketler anti-virüs / anti-malware yanlış pozitiflerini önlemek için UPX sıkıştırmasız ve standart PE/Mach-O imzalarıyla derlenmiştir.
+          draft: false
+          prerelease: false

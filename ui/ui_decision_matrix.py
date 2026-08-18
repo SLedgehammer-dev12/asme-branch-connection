@@ -203,17 +203,19 @@ def create_decision_matrix_figure(current_stress_ratio=None, current_d_ratio=Non
         rec_types = [r["Type"] for r in rule.get("recommendations", [])]
         rec_title = " / ".join(rec_types[:1])  # İlk tavsiyeyi göster
         
-        # Dikdörtgen şekil ekle
-        fig.add_shape(
-            type="rect",
-            x0=d_ratio_min, x1=d_ratio_max,
-            y0=stress_min, y1=stress_max,
-            line=dict(color=color, width=2),
+        # Dikdörtgen bölgeyi Scatter trace olarak ekle (interaktif hover ve lejant desteği)
+        fig.add_trace(go.Scatter(
+            x=[d_ratio_min, d_ratio_max, d_ratio_max, d_ratio_min, d_ratio_min],
+            y=[stress_min, stress_min, stress_max, stress_max, stress_min],
+            mode="lines",
+            fill="toself",
             fillcolor=color,
-            opacity=0.3,
-            hovertext=f"<b>{rec_title}</b><br>Stres: {stress_min:.0%} - {stress_max:.0%}<br>d/D: {d_ratio_min:.0%} - {d_ratio_max:.0%}",
+            opacity=0.4,
+            line=dict(color=color, width=1.5),
+            name=rec_title,
+            hovertext=f"<b>{rec_title}</b><br>Stres Oranı: {stress_min:.0%} - {stress_max:.0%}<br>Çap Oranı (d/D): {d_ratio_min:.0%} - {d_ratio_max:.0%}",
             hoverinfo="text",
-        )
+        ))
     
     # Başlık ve eksen etiketleri
     fig.update_layout(
@@ -311,38 +313,63 @@ def get_fitting_details(fitting_type):
 
 def get_clause_details(clause_id):
     """ASME kloz numarasından detaylı bilgi döndür."""
-    return ASME_CLAUSE_REFERENCES.get(clause_id, {})
+    if not clause_id:
+        return {}
+    if clause_id in ASME_CLAUSE_REFERENCES:
+        return ASME_CLAUSE_REFERENCES[clause_id]
+    
+    # Kısmi eşleşme kontrolü (örn. Para 831.4.2(h) -> 831.4.2(b))
+    for k, v in ASME_CLAUSE_REFERENCES.items():
+        if k in clause_id or clause_id in k:
+            return v
+    return {}
 
 
 def extract_clause_ids(clause_trace):
-    """Clause trace'ten kloz ID'lerini çıkar (831.4.2(a) gibi)."""
+    """Clause trace'ten kloz ID'lerini çıkar (831.4.2(a), Table 831.4.2-1 gibi)."""
     if not clause_trace:
         return []
     
     clause_ids = []
-    for clause in clause_trace:
-        # "831.4.1 - Title" formatından ID'yi çıkar
-        if " - " in clause:
-            clause_id = clause.split(" - ")[0].strip()
+    for item in clause_trace:
+        if isinstance(item, dict):
+            raw_text = item.get("ref") or item.get("clause") or item.get("note", "")
+        elif isinstance(item, str):
+            raw_text = item
         else:
-            clause_id = clause.strip()
+            continue
         
-        # Temel kloz numarasını al (831.4.2(a) -> 831.4.2(a))
-        if clause_id.startswith("831."):
-            clause_ids.append(clause_id)
+        if not raw_text:
+            continue
+
+        # "831.4.1 - Title" veya "Para 831.4.2(h)" formatından ID'yi ayıkla
+        if " - " in raw_text:
+            candidate = raw_text.split(" - ")[0].strip()
+        else:
+            candidate = str(raw_text).strip()
+
+        clean_id = candidate.replace("Para", "").replace("Section", "").replace("Clause", "").strip()
+        if clean_id:
+            clause_ids.append(clean_id)
     
-    return clause_ids
+    return list(dict.fromkeys(clause_ids))  # Benzersiz ve sıralı
 
 
 def format_clause_reference(clause_id):
-    """Kloz referansını formatlanmış HTML/Markdown olarak döndür."""
+    """Kloz referansını formatlanmış dictionary olarak döndür."""
     details = get_clause_details(clause_id)
     if not details:
-        return f"**{clause_id}**: Referans bulunamadı"
+        return {
+            "id": clause_id,
+            "title": f"ASME B31.8 Standart Referansı ({clause_id})",
+            "description": f"ASME B31.8 standardı {clause_id} bölümü tasarım kuralları ve güvenlik gereklilikleri.",
+            "requirements": ["ASME B31.8 kloz şartlarına ve mühendislik şartnamesine uyulmalıdır."],
+        }
     
     return {
         "id": clause_id,
-        "title": details.get("title", ""),
+        "title": details.get("title", f"ASME B31.8 {clause_id}"),
         "description": details.get("description", ""),
         "requirements": details.get("requirements", []),
     }
+
