@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.2.0)"
+        description: "Release version tag (e.g. v3.3.0)"
         required: true
-        default: "v3.2.0"
+        default: "v3.3.0"
 
 permissions:
   contents: write
@@ -65,8 +65,9 @@ jobs:
       - name: Package Windows Release Archive
         shell: pwsh
         run: |
-          $ver = if ("${{ github.ref_name }}" -like "v*") { "${{ github.ref_name }}" } else { "${{ github.event.inputs.version }}" }
-          if (-not $ver) { $ver = "v3.2.0" }
+          $ver = '${{ github.ref_name }}'
+          if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
+          if (-not $ver) { $ver = 'v3.3.0' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -112,19 +113,19 @@ jobs:
         run: |
           VER="${{ github.ref_name }}"
           if [[ -z "$VER" || "$VER" != v* ]]; then
-            VER="${{ github.event.inputs.version }}"
+            VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.2.0"
+            VER="v3.3.0"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
-          cat << "EOF" > dist/Start_ASME_Tool.command
-#!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-xattr -d com.apple.quarantine "$DIR/ASME_Branch_Connection_V3" 2>/dev/null || true
-exec "$DIR/ASME_Branch_Connection_V3"
-EOF
+          cat << 'EOF' > dist/Start_ASME_Tool.command
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          xattr -d com.apple.quarantine "$DIR/ASME_Branch_Connection_V3" 2>/dev/null || true
+          exec "$DIR/ASME_Branch_Connection_V3"
+          EOF
           chmod +x dist/Start_ASME_Tool.command
           
           cd dist
@@ -145,6 +146,9 @@ EOF
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: Download All Build Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -156,40 +160,54 @@ EOF
           find release-artifacts -type f -name "*.zip*" -exec cp {} final-release/ \;
           ls -la final-release/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: final-release/*
-          tag_name: ${{ github.ref_name || github.event.inputs.version || v3.2.0 }}
-          name: ASME B31.8 Pipeline Designer ${{ github.ref_name || github.event.inputs.version || v3.2.0 }}
-          body: |
-            # 🚀 ASME B31.8 Pipeline Branch Connection Design Tool
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ -z "$TAG" || "$TAG" != v* ]]; then
+            TAG="${{ inputs.version }}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            TAG="v3.3.0"
+          fi
 
-            Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2020**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
+          cat << 'EOF' > release_notes.md
+          # 🚀 ASME B31.8 Pipeline Branch Connection Design Tool
 
-            ### 📦 İndirilebilir Paketler (Downloads):
-            * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
-            * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+          Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2020**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
 
-            ### ✨ Yenilikler ve Geliştirmeler:
-            * **ASME B31.8 Standart Faktörleri**:
-              * Tablo 841.1.8-1 Sıcaklık Düşürme Faktörü ($T$) otomatik interpolasyonu.
-              * Tablo 841.1.7-1 Boyuna Dikiş Faktörü ($E_h$ ve $E_b$) bağımsız seçimi (Seamless, ERW, LSAW, SSAW, EFW).
-              * Tablo 841.1.6-1 & Para 841.1.9 Konum Sınıfı (Class 1-4) ve Tesis Tipi ($F$) limitleri.
-              * Hadde İmalat Toleransı (API 5L %12.5) ve Nominal vs Minimum Kalınlık Bazı Analizi.
-            * **Geometri, Kaynak & Güvenlik**:
-              * $45^\circ \le eta \le 90^\circ$ Açılı (Lateral) Branşman Alan Telafisi.
-              * ASME B31.8 Fig. I-4 Kaynak Boğazı ($t_c$) ve Bacak Boyu Denetimleri.
-              * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı ($WT < 4.8 mm$).
-              * Otomatik Takviye Pedi Boyutlandırma Motoru (Auto-Size Pad).
-              * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi ($1.25x MAOP$).
-            * **Görselleştirme, Metalurji & Raporlama**:
-              * Dinamik 2D Ölçekli Kesit Çizimi (Plotly - $A_1, A_2, A_3, A_4$ renklendirilmiş).
-              * NACE MR0175 / ISO 15156 Ekşi Gaz (Sour Service), Karbon Eşdeğeri ($CE_{IIW}, P_{cm}$) ve PWHT Analizi.
-              * İmzalanabilir Resmi Mühendislik Hesap Raporu (A4 Printable HTML Dossier).
-              * Modern Yüksek Çözünürlüklü Uygulama İkonu.
+          ### 📦 İndirilebilir Paketler (Downloads):
+          * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
+          * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
 
-            ---
-            *Güvenlik ve Bütünlük*: Tüm paketler anti-virüs / anti-malware yanlış pozitiflerini önlemek için UPX sıkıştırmasız ve standart PE/Mach-O imzalarıyla derlenmiştir.
-          draft: false
-          prerelease: false
+          ### ✨ Yenilikler ve Geliştirmeler:
+          * **ASME B31.8 Standart Faktörleri**:
+            * Tablo 841.1.8-1 Sıcaklık Düşürme Faktörü ($T$) otomatik interpolasyonu.
+            * Tablo 841.1.7-1 Boyuna Dikiş Faktörü ($E_h$ ve $E_b$) bağımsız seçimi (Seamless, ERW, LSAW, SSAW, EFW).
+            * Tablo 841.1.6-1 & Para 841.1.9 Konum Sınıfı (Class 1-4) ve Tesis Tipi ($F$) limitleri.
+            * Hadde İmalat Toleransı (API 5L %12.5) ve Nominal vs Minimum Kalınlık Bazı Analizi.
+          * **Geometri, Kaynak & Güvenlik**:
+            * Açılı (Lateral $45^\circ \le \beta \le 90^\circ$) Branşman Alan Telafisi ($A_{req} = \frac{d \cdot t_h}{\sin\beta}$).
+            * ASME B31.8 Fig. I-4 Kaynak Boğazı ($t_c$) ve Bacak Boyu Denetimleri.
+            * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı ($WT < 4.8\text{ mm}$).
+            * Otomatik Takviye Pedi Boyutlandırma Motoru (Auto-Size Pad).
+            * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi ($1.25\times\text{MAOP}$).
+          * **Görselleştirme, Metalurji & Raporlama**:
+            * Dinamik 2D Ölçekli Kesit Çizimi (Plotly - $A_1, A_2, A_3, A_4$ renklendirilmiş).
+            * NACE MR0175 / ISO 15156 Ekşi Gaz (Sour Service), Karbon Eşdeğeri ($CE_{IIW}, P_{cm}$) ve PWHT Analizi.
+            * İmzalanabilir Resmi Mühendislik Hesap Raporu (A4 Printable HTML Dossier).
+            * Modern Yüksek Çözünürlüklü Uygulama İkonu.
+
+          ---
+          *Güvenlik ve Bütünlük*: Tüm paketler anti-virüs / anti-malware yanlış pozitiflerini önlemek için UPX sıkıştırmasız ve standart PE/Mach-O imzalarıyla derlenmiştir.
+          EOF
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Updating existing release $TAG..."
+            gh release edit "$TAG" --title "ASME B31.8 Pipeline Designer $TAG" --notes-file release_notes.md
+            gh release upload "$TAG" final-release/* --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" final-release/* --title "ASME B31.8 Pipeline Designer $TAG" --notes-file release_notes.md
+          fi
