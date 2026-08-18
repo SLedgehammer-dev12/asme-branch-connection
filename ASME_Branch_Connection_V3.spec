@@ -1,19 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
-import os, streamlit
+import os, sys, streamlit
 from PyInstaller.utils.hooks import copy_metadata
 
 streamlit_dir = os.path.dirname(streamlit.__file__)
 
 datas = [(streamlit_dir, 'streamlit'), ('app.py', '.'), ('engine.py', '.'), ('fitting_database.py', '.'), ('assets', 'assets'), ('logs', 'logs'), ('data', 'data'), ('ui', 'ui')]
 datas += copy_metadata('streamlit')
+datas += copy_metadata('plotly')
 
+icon_file = 'assets/app_icon.ico' if sys.platform.startswith('win') else 'assets/app_icon.png'
 
 a = Analysis(
     ['launcher.py'],
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['streamlit', 'engine', 'fitting_database', 'altair', 'pandas', 'logs.logbook_manager', 'ui.ui_decision_matrix', 'ui.ui_recommendations', 'ui.ui_analysis', 'ui.ui_inputs', 'ui.ui_utils'],
+    hiddenimports=[
+        'streamlit', 'engine', 'fitting_database', 'altair', 'pandas',
+        'plotly', 'plotly.graph_objects', 'plotly.express',
+        'logs.logbook_manager', 'ui.ui_decision_matrix',
+        'ui.ui_recommendations', 'ui.ui_analysis', 'ui.ui_diagram',
+        'ui.ui_diagram_3d', 'ui.ui_inputs', 'ui.ui_utils'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -33,7 +41,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
@@ -42,4 +50,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=icon_file if os.path.exists(icon_file) else None,
 )

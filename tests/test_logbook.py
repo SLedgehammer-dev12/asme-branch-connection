@@ -134,3 +134,13 @@ def test_get_entry_count(tmp_path):
     )
     assert manager.get_entry_count() == 1
 
+
+def test_logbook_manager_creates_parent_directories_if_nonexistent(tmp_path):
+    nested_log_path = tmp_path / "deep" / "nested" / "folder" / "project_logbook.json"
+    assert not nested_log_path.parent.exists()
+    
+    manager = LogbookManager(log_file=str(nested_log_path))
+    assert nested_log_path.exists()
+    assert manager.get_entry_count() == 0
+
+

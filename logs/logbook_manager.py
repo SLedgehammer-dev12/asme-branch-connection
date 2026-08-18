@@ -26,6 +26,7 @@ DEFAULT_LOG_FILE = "logs/project_logbook.json"
 class LogbookManager:
     """
     Manages the project logbook for storing historical run data.
+    100% Standalone and resilient to missing files/directories.
     """
     
     def __init__(self, log_file: str = DEFAULT_LOG_FILE):
@@ -35,9 +36,28 @@ class LogbookManager:
         Args:
             log_file: Path to the log file (default: logs/project_logbook.json)
         """
-        self.log_file = log_file
+        self.log_file = self._resolve_log_path(log_file)
         self.logbook: Optional[Logbook] = None
         self._ensure_log_file_exists()
+
+    def _resolve_log_path(self, path: str) -> str:
+        """
+        Resolves a safe writable path for the logbook.
+        Falls back to user home directory if local directory is not writable.
+        """
+        try:
+            abs_path = os.path.abspath(path)
+            log_dir = os.path.dirname(abs_path)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            return abs_path
+        except (OSError, PermissionError):
+            user_dir = os.path.expanduser("~/.asme_pipeline_designer")
+            try:
+                os.makedirs(user_dir, exist_ok=True)
+                return os.path.join(user_dir, "project_logbook.json")
+            except Exception:
+                return path
     
     def _ensure_log_file_exists(self) -> None:
         """
@@ -46,30 +66,36 @@ class LogbookManager:
         if not os.path.exists(self.log_file):
             self.logbook = get_empty_logbook()
             self._save_logbook()
+        else:
+            self._load_logbook()
     
     def _load_logbook(self) -> None:
         """
-        Load the logbook from the JSON file.
+        Load the logbook from the JSON file safely.
         """
         if os.path.exists(self.log_file):
             try:
                 with open(self.log_file, 'r', encoding='utf-8') as f:
                     self.logbook = json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, OSError, IOError) as e:
+                logger.warning("Could not parse logbook from %s: %s. Initializing empty.", self.log_file, e)
                 self.logbook = get_empty_logbook()
         else:
             self.logbook = get_empty_logbook()
     
     def _save_logbook(self) -> None:
         """
-        Save the logbook to the JSON file.
+        Save the logbook to the JSON file safely.
         """
         if self.logbook is not None:
             try:
+                log_dir = os.path.dirname(os.path.abspath(self.log_file))
+                if log_dir:
+                    os.makedirs(log_dir, exist_ok=True)
                 with open(self.log_file, 'w', encoding='utf-8') as f:
                     json.dump(self.logbook, f, indent=2, ensure_ascii=False)
-            except IOError as e:
-                logger.error("Error saving logbook: %s", e)
+            except (OSError, IOError, PermissionError) as e:
+                logger.warning("Notice: Logbook file could not be persisted to disk (%s): %s", self.log_file, e)
     
     def load(self) -> Logbook:
         """

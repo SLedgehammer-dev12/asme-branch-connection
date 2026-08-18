@@ -60,12 +60,6 @@ def render_sidebar_inputs():
         F = calc_F
         st.info(f"Tasarım Faktörü: **F = {F}**")
 
-    # Dikiş Tipi ve E Faktörü
-    seam_list = list(engine.JOINT_FACTORS.keys())
-    seam_type = st.selectbox("Kaynak / Dikiş Tipi (Seam Type)", seam_list, index=0)
-    E = engine.get_joint_factor(seam_type)
-    st.caption(f"Boyuna Kaynak Faktörü: **E = {E}**")
-
     # Sıcaklık Faktörü (T) Otomatik
     auto_T, t_warn = engine.get_temperature_derating_factor(design_temp)
     if t_warn:
@@ -85,15 +79,15 @@ def render_sidebar_inputs():
     branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=45.0, max_value=90.0, step=5.0, help="ASME B31.8 831.4.1(b)")
 
     c_tol, c_basis = st.columns(2)
-    mill_tol_percent = c_tol.number_input("Hadde Tol. (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L / ASTM genelde %12.5")
-    thickness_basis = c_basis.selectbox("Hesap Bazı", ["nominal", "minimum"], index=0, format_func=lambda x: "Nominal" if x == "nominal" else "Minimum (-Tol)")
+    mill_tol_percent = c_tol.number_input("Hadde Toleransı (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L Spec standardı %12.5")
+    thickness_basis = c_basis.selectbox("Kalınlık Bazı", ["nominal", "minimum"], index=0, help="ASME B31.8 / CSA Z662 hesap yaklaşımı")
 
     is_sour_service = st.checkbox("Ekşi Gaz Servisi (NACE MR0175 / Sour)", value=False, help="H2S içeren ortam için metalurji ve sertlik kontrolleri")
 
     return (
-        design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
+        design_temp, op_type, P_val, P_unit, F, 1.0, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
-        facility_type, seam_type, location_class
+        facility_type, "Seamless (SMLS)", location_class
     )
 
 

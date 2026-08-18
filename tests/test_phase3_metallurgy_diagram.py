@@ -78,8 +78,12 @@ class TestCalculationDossierReport:
         assert "Onaylayan" in report
 
 
+from ui.ui_diagram import create_cross_section_figure
+from ui.ui_diagram_3d import create_3d_cad_model_figure
+
+
 class TestDiagramGeneration:
-    """2D Engineering Cross-Section Diagram tests."""
+    """2D & 3D Engineering CAD Diagram tests."""
 
     def test_cross_section_figure_generation(self):
         run = {"OD_mm": 609.6, "WT_mm": 14.3}
@@ -87,11 +91,35 @@ class TestDiagramGeneration:
         analysis_res = {
             "wt_h_net": 12.8, "wt_b_net": 7.8, "t_h_mm": 5.9, "t_b_mm": 3.9,
             "d_hole": 273.0, "L_eff": 19.5, "A1": 883.2, "A2": 304.2,
-            "A3": 50.0, "A4": 635.0, "W_p": 63.5, "Need_Reinf": False
+            "A3": 50.0, "A4": 635.0, "W_p": 63.5, "Need_Reinf": False,
+            "branch_angle_deg": 90.0
         }
         pad_props = {"has_pad": True, "T_pad": 10.0, "D_pad": 400.0}
         weld_legs = {"inner": 5.0, "outer": 5.0}
 
         fig = create_cross_section_figure(run, branch, analysis_res, pad_props, weld_legs)
         assert fig is not None
-        assert len(fig.data) >= 4  # Should have traces for header, branch, A1, A2, A3, A4
+        assert len(fig.data) >= 4
+
+    def test_angled_cross_section_figure_generation(self):
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {
+            "wt_h_net": 12.8, "wt_b_net": 7.8, "t_h_mm": 5.9, "t_b_mm": 3.9,
+            "d_hole": 386.0, "L_eff": 19.5, "A1": 883.2, "A2": 304.2,
+            "A3": 50.0, "A4": 635.0, "W_p": 63.5, "Need_Reinf": False,
+            "branch_angle_deg": 45.0
+        }
+        fig = create_cross_section_figure(run, branch, analysis_res, branch_angle_deg=45.0)
+        assert fig is not None
+        assert len(fig.data) >= 2
+
+    def test_3d_cad_model_figure_generation(self):
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {"branch_angle_deg": 90.0}
+        pad_props = {"has_pad": True, "T_pad": 10.0, "D_pad": 400.0}
+
+        fig_3d = create_3d_cad_model_figure(run, branch, analysis_res, pad_props, branch_angle_deg=90.0)
+        assert fig_3d is not None
+        assert len(fig_3d.data) >= 3  # Header surface, branch surface, pad surface, welds

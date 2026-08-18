@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.2
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.3
 """
 
 import streamlit as st
@@ -10,6 +10,7 @@ from engine import (
     evaluate_sour_service_compliance,
 )
 from ui.ui_diagram import create_cross_section_figure
+from ui.ui_diagram_3d import create_3d_cad_model_figure
 from ui.ui_utils import show_engine_messages, render_trace_block
 import fitting_database as db
 
@@ -84,23 +85,33 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     c4.metric("A4 (Pad/Sleeve)", f"{ar['A4']:.0f} mm²",
               help="Takviye pedi veya manşon katkısı")
 
-    # 2D Dinamik Kesit Çizimi Sekmesi
-    tab_diag, tab_calc, tab_safety, tab_metal = st.tabs([
+    # 2D & 3D Dinamik CAD Çizim Sekmeleri
+    tab_diag, tab_3d, tab_calc, tab_safety, tab_metal = st.tabs([
         "📐 2D Ölçekli Kesit Çizimi",
+        "🧊 3D CAD Modeli",
         "📑 Hesap İzi ve Kalınlıklar",
         "🛡️ Kaynak & Saha Testi Güvenliği",
         "🔬 Metalurji & Sour Service",
     ])
 
+    pad_p = eng_kwargs.get("pad_props", {})
+    weld_l = eng_kwargs.get("weld_legs", {})
+
     with tab_diag:
         st.markdown("##### ASME B31.8 Alan Telafisi 2D Kesit Görselleştirmesi")
-        pad_p = eng_kwargs.get("pad_props", {})
-        weld_l = eng_kwargs.get("weld_legs", {})
         try:
             fig_cross = create_cross_section_figure(run_data, branch_data, ar, pad_p, weld_l)
             st.plotly_chart(fig_cross, use_container_width=True)
         except Exception as e:
             st.warning(f"2D Kesit şeması çizilirken hata oluştu: {e}")
+
+    with tab_3d:
+        st.markdown("##### 3D CAD İnteraktif Boru & Branşman Modeli")
+        try:
+            fig_3d = create_3d_cad_model_figure(run_data, branch_data, ar, pad_p, branch_angle_deg=branch_angle_deg)
+            st.plotly_chart(fig_3d, use_container_width=True)
+        except Exception as e:
+            st.warning(f"3D CAD modeli çizilirken hata oluştu: {e}")
 
     with tab_calc:
         col_a, col_b = st.columns(2)

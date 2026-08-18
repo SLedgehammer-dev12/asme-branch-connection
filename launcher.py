@@ -1,6 +1,6 @@
 # =============================================================================
-# ASME B31.8 Pipeline Designer V3.2 — Standalone Launcher
-# PyInstaller ile .exe olarak paketlenecek baslatici
+# ASME B31.8 Pipeline Designer V3.3 — Standalone Launcher
+# PyInstaller ile .exe ve macOS App olarak paketlenecek baslatici
 # =============================================================================
 import sys
 import os

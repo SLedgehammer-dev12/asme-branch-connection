@@ -50,6 +50,7 @@ pyinstaller_args = [
     '--hidden-import=ui.ui_recommendations',
     '--hidden-import=ui.ui_analysis',
     '--hidden-import=ui.ui_diagram',
+    '--hidden-import=ui.ui_diagram_3d',
     '--hidden-import=ui.ui_inputs',
     '--hidden-import=ui.ui_utils',
     '--copy-metadata=streamlit',
