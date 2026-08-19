@@ -22,6 +22,16 @@ def render_sidebar_inputs():
 
     st.header("1. Operasyon ve Dizayn")
 
+    # Faz 3: Birim sistemi (Metric / Imperial)
+    unit_system = st.radio(
+        "Birim Sistemi (Unit System)",
+        ["metric", "imperial"],
+        index=0,
+        format_func=lambda x: "Metric (mm, MPa, °C)" if x == "metric" else "Imperial (in, psi, °F)",
+        help="Tüm girdi/çıktılar seçilen birim sistemine göre dönüştürülür.",
+    )
+    st.session_state["unit_system"] = unit_system
+
     design_temp = st.number_input(
         "Tasarım sıcaklığı (°C)",
         value=20.0,
@@ -76,7 +86,7 @@ def render_sidebar_inputs():
 
     c_ca, c_ang = st.columns(2)
     CA_mm = c_ca.number_input("Korozyon Payı (mm)", value=1.5, min_value=0.0, step=0.1)
-    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=45.0, max_value=90.0, step=5.0, help="ASME B31.8 831.4.1(b)")
+    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=30.0, max_value=90.0, step=5.0, help="ASME B31.8 831.4.1(b): β < 45° için FEA doğrulaması önerilir")
 
     c_tol, c_basis = st.columns(2)
     mill_tol_percent = c_tol.number_input("Hadde Toleransı (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L Spec standardı %12.5")

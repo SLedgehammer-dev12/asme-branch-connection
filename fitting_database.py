@@ -252,3 +252,64 @@ def get_olet_dimensions(branch_nps, is_sockolet=False):
     else:
         height = _WELDOLET_HEIGHT.get(key, 60)
         return {"Height (A)": f"{height} mm", "Base Thickness": "Std."}
+
+
+# --- FAZ 4: FITTING STANDART TOLERANS & YAKLAŞIK AĞIRLIK KATALOĞU ---
+# ASME B16.9-2018 / ASME B16.11-2016 / MSS SP-75'e göre sınırlar (repo kataloğu).
+# Normatif onay için lisanslı standart kopyaları ile doğrulanmalıdır.
+
+_FITTING_WALL_TOLERANCE = {
+    "ASME B16.9": {
+        "standard": "Butt-Welding Fittings",
+        "wt_rule": "Et kalınlığı: nominalin en az %87.5'i (maks. +%12.5 / %0).",
+        "notes": "Kaynak ucu et kalınlığı bağlanan borunun kalınlığına uyarlanır.",
+    },
+    "ASME B16.11": {
+        "standard": "Forged Socket-Weld & Threaded Fittings",
+        "wt_rule": "Forged malzeme; socket-weld ve threaded uçlar için nominal boyutlar.",
+        "notes": "Sınıf 2000/3000/6000; basınç sınıfına göre boyutlandırılır.",
+    },
+    "MSS SP-75": {
+        "standard": "High-Test Wrought Butt-Welding Fittings",
+        "wt_rule": "Yüksek testli (X42-X80) dövme butt-welding fitting; et kalınlığı %87.5 min.",
+        "notes": "Yüksek mukavemetli hatlar için; B16.9 ile birlikte kullanılır.",
+    },
+}
+
+# NPS -> yaklaşık ağırlık (kg), standart kalınlık varsayımı ile (repo kataloğu)
+_FITTING_APPROX_WEIGHT_KG = {
+    "1/2": {"tee": 0.4, "weld_elbow_90": 0.5, "weldolets": 0.2},
+    "3/4": {"tee": 0.5, "weld_elbow_90": 0.7, "weldolets": 0.3},
+    "1": {"tee": 0.8, "weld_elbow_90": 1.0, "weldolets": 0.4},
+    "1 1/2": {"tee": 1.4, "weld_elbow_90": 1.8, "weldolets": 0.7},
+    "2": {"tee": 2.1, "weld_elbow_90": 2.6, "weldolets": 1.1},
+    "3": {"tee": 4.2, "weld_elbow_90": 5.4, "weldolets": 2.2},
+    "4": {"tee": 7.1, "weld_elbow_90": 9.1, "weldolets": 3.8},
+    "6": {"tee": 15.2, "weld_elbow_90": 19.5, "weldolets": 7.9},
+    "8": {"tee": 27.0, "weld_elbow_90": 34.6, "weldolets": 14.0},
+    "10": {"tee": 43.0, "weld_elbow_90": 55.0, "weldolets": 22.0},
+    "12": {"tee": 62.0, "weld_elbow_90": 80.0, "weldolets": 32.0},
+    "16": {"tee": 112.0, "weld_elbow_90": 145.0, "weldolets": 58.0},
+    "20": {"tee": 178.0, "weld_elbow_90": 230.0, "weldolets": 92.0},
+    "24": {"tee": 260.0, "weld_elbow_90": 340.0, "weldolets": 135.0},
+}
+
+
+def get_fitting_wall_tolerance(standard):
+    """Standart adına göre et kalınlığı tolerans kuralını döndürür."""
+    return _FITTING_WALL_TOLERANCE.get(standard, {
+        "standard": standard,
+        "wt_rule": "Bilinmiyor - lisanslı standart ile doğrulayın.",
+        "notes": "",
+    })
+
+
+def get_fitting_approximate_weight(nps, fitting_type="tee"):
+    """NPS ve fitting tipine göre yaklaşık ağırlığı (kg) döndürür."""
+    key = nps.strip() if nps else ""
+    fitting_key = fitting_type.strip().lower().replace(" ", "_") if fitting_type else "tee"
+    entry = _FITTING_APPROX_WEIGHT_KG.get(key)
+    if not entry:
+        return None
+    return entry.get(fitting_key, None)
+

@@ -1,4 +1,4 @@
-# ASME B31.8 Pipeline Designer V3.2
+# ASME B31.8 Pipeline Designer V3.4
 
 ASME B31.8-2020 standardına göre branch connection tasarımı, alan telafisi (Area Replacement) ve fitting seçimi için expert-assist aracı.
 

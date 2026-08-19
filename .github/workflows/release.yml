@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.3.0)"
+        description: "Release version tag (e.g. v3.4.0)"
         required: true
-        default: "v3.3.0"
+        default: "v3.4.0"
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
-          if (-not $ver) { $ver = 'v3.3.0' }
+          if (-not $ver) { $ver = 'v3.4.0' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -116,7 +116,7 @@ jobs:
             VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.3.0"
+            VER="v3.4.0"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
@@ -169,7 +169,7 @@ jobs:
             TAG="${{ inputs.version }}"
           fi
           if [[ -z "$TAG" ]]; then
-            TAG="v3.3.0"
+            TAG="v3.4.0"
           fi
 
           cat << 'EOF' > release_notes.md
@@ -181,18 +181,30 @@ jobs:
           * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
           * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
 
-          ### ✨ Yenilikler ve Geliştirmeler:
+          ### ✨ V3.4 Yenilikleri ve Geliştirmeler:
+          * **Modüler Mimari (Faz 2)**: `engine.py` (1996 satıra indirildi) — saf hesap motoru `engine_math.py`'ye taşındı, geriye uyumlu re-export. Tip güvenli **dataclass kontratları** (`engine_contracts.py`: `PipeSpecification`, `DesignFactors`, `DesignInput`).
+          * **Açılı Bağlantı FEA Uyarısı**: β < 45° girildiğinde ASME B31.8 Para 831.4.1(b) kapsamında **kritik mühendislik uyarısı** (FEA / özel takviyeli tasarım önerisi) + Clause trace + Final Action. UI alt sınırı 30°'ye düzeltildi (engine ile tutarlı).
+          * **H₂S Sour Service Otomasyonu**: H₂S ppm girdisi → **p_H₂S = P × ppm × 10⁻⁶** → Region 0/1/2/3 sınıflandırması (NACE MR0175 / ISO 15156) ve otomatik sour aktivasyonu.
+          * **Hot Tap Kaynak Desteği**: API 1104 Annex B ön ısıtma & azami ısı girdisi (kJ/mm) + Cutter vs Branch ID geometrik çakışma kontrolü.
+          * **SIF Modülü**: Branşman için düzlem içi (ii) / dışı (io) gerilme yoğunlaşma faktörü + opsiyonel harici yüklerle **Von Mises birleşik gerilme** kontrolü.
+          * **Birim Sistemi (Metric/Imperial)**: `units.py` ile mm/MPa/°C ↔ in/psi/°F anlık dönüşüm ve arayüz geçişi.
+          * **What-If Karşılaştırması**: Birden fazla senaryonun yan yana karşılaştırıldığı yeni tab (A_req, A_avail, takviye durumu vb.).
+          * **Resmi PDF Hesap Föyü**: `report_pdf.py` (ReportLab) — dinamik kapak, revizyon geçmişi, mühendislik onay bloğu ve firma logosu ile tek tıkla **PDF** indirme.
+          * **Fitting Kataloğu**: ASME B16.9 / B16.11 / MSS SP-75 et kalınlığı tolerans ve yaklaşık ağırlık kataloğu.
+          * **Kapsam**: 283 otomatik test, %95 kod kapsamı.
+
+          ### ✨ Önceki Sürümler (V3.3):
           * **ASME B31.8 Standart Faktörleri**:
             * Tablo 841.1.8-1 Sıcaklık Düşürme Faktörü ($T$) otomatik interpolasyonu.
-            * Tablo 841.1.7-1 Boyuna Dikiş Faktörü ($E_h$ ve $E_b$) bağımsız seçimi (Seamless, ERW, LSAW, SSAW, EFW).
+            * Tablo 841.1.7-1 Boyuna Dikiş Faktörü ($E_h$ ve $E_b$) bağımsız seçimi.
             * Tablo 841.1.6-1 & Para 841.1.9 Konum Sınıfı (Class 1-4) ve Tesis Tipi ($F$) limitleri.
             * Hadde İmalat Toleransı (API 5L %12.5) ve Nominal vs Minimum Kalınlık Bazı Analizi.
           * **Geometri, Kaynak & Güvenlik**:
-            * Açılı (Lateral $45^\circ \le \beta \le 90^\circ$) Branşman Alan Telafisi ($A_{req} = \frac{d \cdot t_h}{\sin\beta}$).
+            * Açılı (Lateral $45^\circ \le \beta \le 90^\circ$) Branşman Alan Telafisi.
             * ASME B31.8 Fig. I-4 Kaynak Boğazı ($t_c$) ve Bacak Boyu Denetimleri.
-            * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı ($WT < 4.8\text{ mm}$).
+            * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı.
             * Otomatik Takviye Pedi Boyutlandırma Motoru (Auto-Size Pad).
-            * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi ($1.25\times\text{MAOP}$).
+            * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi.
           * **Görselleştirme, Metalurji & Raporlama**:
             * Dinamik 2D Ölçekli Kesit Çizimi (Plotly - $A_1, A_2, A_3, A_4$ renklendirilmiş).
             * NACE MR0175 / ISO 15156 Ekşi Gaz (Sour Service), Karbon Eşdeğeri ($CE_{IIW}, P_{cm}$) ve PWHT Analizi.

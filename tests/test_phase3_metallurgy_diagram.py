@@ -5,6 +5,7 @@ Test Suite for ASME B31.8 Pipeline Designer - Phase 3: Metallurgy, 2D Diagram & 
 import pytest
 from engine import (
     calculate_carbon_equivalent,
+    classify_sour_service,
     evaluate_sour_service_compliance,
     PipelineExpertEngine,
 )
@@ -47,6 +48,43 @@ class TestMetallurgyAndSourService:
         # WT = 35 mm > 32 mm
         res = evaluate_sour_service_compliance(pipe_chem=chem, pipe_mech=mech, is_sour_service=False, wt_mm=35.0)
         assert res["pwht_required"] is True
+
+    def test_p_h2s_classification_below_threshold_not_sour(self):
+        # P = 7 MPa, H2S = 10 ppm -> p_H2S = 7 * 10 * 1e-3 = 0.07 kPa < 0.35
+        res = classify_sour_service(h2s_ppm=10, pressure_mpa=7.0)
+        assert res["p_h2s_kpa"] == pytest.approx(0.07, abs=1e-3)
+        assert res["is_sour"] is False
+        assert "Sour Değil" in res["region"]
+
+    def test_p_h2s_classification_sour_region1(self):
+        # P = 7 MPa, H2S = 100 ppm -> p_H2S = 0.7 kPa >= 0.35
+        res = classify_sour_service(h2s_ppm=100, pressure_mpa=7.0)
+        assert res["is_sour"] is True
+        assert res["region"] == "Region 1"
+
+    def test_p_h2s_classification_sour_region2(self):
+        # P = 7 MPa, H2S = 1000 ppm -> p_H2S = 7.0 kPa (Region 2)
+        res = classify_sour_service(h2s_ppm=1000, pressure_mpa=7.0)
+        assert res["is_sour"] is True
+        assert res["region"] == "Region 2"
+
+    def test_p_h2s_classification_sour_region3(self):
+        # P = 7 MPa, H2S = 20000 ppm -> p_H2S = 140 kPa (Region 3)
+        res = classify_sour_service(h2s_ppm=20000, pressure_mpa=7.0)
+        assert res["is_sour"] is True
+        assert res["region"] == "Region 3"
+
+    def test_auto_enable_sour_when_h2s_entered(self):
+        chem = {"C": "0.10", "Mn": "1.10", "S": "0.002", "P": "0.010"}
+        mech = {"Hardness": "197 HB max"}
+        # Sour olarak algılanmasa bile is_sour_service=False ile çağrılır; h2s girilince otomatik aktif olur
+        res = evaluate_sour_service_compliance(
+            pipe_chem=chem, pipe_mech=mech, is_sour_service=False, wt_mm=14.3,
+            h2s_ppm=100, pressure_mpa=7.0,
+        )
+        assert res["sour_class"] is not None
+        assert res["sour_class"]["is_sour"] is True
+        assert res["is_sour_service"] is True
 
 
 class TestCalculationDossierReport:

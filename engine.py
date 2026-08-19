@@ -1483,8 +1483,10 @@ class PipelineExpertEngine:
             )
 
         # Açı hesabı (ASME B31.8 Para 831.4.1(b))
-        beta_rad = math.radians(max(30.0, min(90.0, self.branch_angle_deg)))
+        beta_deg = max(30.0, min(90.0, self.branch_angle_deg))
+        beta_rad = math.radians(beta_deg)
         sin_beta = math.sin(beta_rad)
+        beta_fea_warning = self.branch_angle_deg < 45.0
         if self.branch_angle_deg < 90.0:
             d_opening = d_hole / sin_beta
             A_req = (d_hole * t_req_h) / sin_beta
@@ -1492,6 +1494,14 @@ class PipelineExpertEngine:
                 "info",
                 f"Açılı bağlantı ({self.branch_angle_deg}°): Gerekli alan A_req = (d × t_h)/sin({self.branch_angle_deg}°) = {A_req:.1f} mm² (ASME B31.8 Para 831.4.1(b))."
             )
+            if beta_fea_warning:
+                self._add_message(
+                    "error",
+                    f"CRITICAL ENGINEERING WARNING: Branşman açısı β = {self.branch_angle_deg}° < 45° olduğundan, "
+                    "birleşim noktasındaki yüksek gerilme konsantrasyonu nedeniyle ASME B31.8 Para 831.4.1(b) kapsamında "
+                    "basit alan telafisi yöntemi sınırlandırılır. Bu durum için Sonlu Elemanlar Analizi (FEA) veya özel "
+                    "takviyeli tasarım ile mühendis doğrulaması önerilir."
+                )
         else:
             d_opening = d_hole
             A_req = d_hole * t_req_h
@@ -1586,6 +1596,7 @@ class PipelineExpertEngine:
             A3 = 2.0 * (0.5 * w_inner**2)
 
         # Hot Tap API RP 2201 Güvenlik Analizi
+        hot_tap_guidance = None
         if self.op_type == "Hot Tap":
             if wt_h_net < 4.8:
                 self._add_message(
@@ -1598,6 +1609,25 @@ class PipelineExpertEngine:
                     "info",
                     f"API RP 2201 Uyarısı: Net et kalınlığı ({wt_h_net:.2f} mm) 6.4 mm altındadır. Canlı hat kaynağı için kalifiye In-Service WPS uygulanmalıdır."
                 )
+
+            # API 1104 Annex B ön ısıtma / ısı girdisi önerisi (CE temsili değerle)
+            branch_id = max(0.0, branch["OD_mm"] - 2.0 * branch.get("WT_mm", 0.0))
+            hot_tap_guidance = evaluate_hot_tap_welding(
+                ce_iiw=0.38,
+                wt_mm=wt_h_net,
+            )
+            self._add_message(
+                "info",
+                f"API 1104 Annex B: {hot_tap_guidance['recommendation']}",
+            )
+            cutter_check = check_hot_tap_cutter_clearance(
+                cutter_od_mm=branch_id, branch_id_mm=branch_id
+            )
+            self._add_message(
+                "info",
+                f"Hot Tap Cutter Kontrolü: Branşman iç çapı (ID) {branch_id:.1f} mm. Cutter seçimi bu iç çapa uygun (maks. cutter OD ≤ {branch_id:.1f} mm) olmalıdır.",
+            )
+            hot_tap_guidance["cutter_max_od_mm"] = branch_id
 
         A_avail = A1 + A2 + A3 + A4
         Missing_Area = max(0, A_req - A_avail)
@@ -1642,6 +1672,30 @@ class PipelineExpertEngine:
         t_order_h = dm_res.get("t_order_h_mm", (t_req_h + self.CA_mm) / tol_factor)
         t_order_b = dm_res.get("t_order_b_mm", (t_req_b + self.CA_mm) / tol_factor)
 
+        # SIF ve birleşik gerilme (harici yükler dahil olmadığında muhafazakar baz)
+        sif = compute_branch_sif(
+            run_od_mm=run["OD_mm"], run_wt_mm=wt_h_net,
+            branch_od_mm=branch["OD_mm"], branch_wt_mm=wt_b_net,
+            fitting_type=selected_fitting_type or "FABRICATED BRANCH",
+        )
+        hoop_stress = (self.P_MPa * run["OD_mm"]) / (2.0 * max(wt_h_net, 1e-9))
+        allowable = run["SMYS_MPa"] * self.F * self.E * self.T
+        combined_stress = evaluate_combined_stress(
+            hoop_mpa=hoop_stress,
+            axial_mpa=0.0,
+            bending_mpa=0.0,
+            shear_mpa=0.0,
+            sif_ii=sif["ii"],
+            sif_io=sif["io"],
+            allowable_mpa=allowable,
+        )
+        self._add_message(
+            "info",
+            f"SIF (ASME B31.8 Appendix E yorumu): ii = {sif['ii']}, io = {sif['io']} ({selected_fitting_type or 'Fabricated Branch'}). "
+            f"Eşdeğer birleşik gerilme (Von Mises) = {combined_stress['von_mises_mpa']:.1f} MPa, "
+            f"izin verilen = {allowable:.1f} MPa -> {'UYGUN' if combined_stress['pass'] else 'AŞIM'}.",
+        )
+
         return {
             "status": "OK",
             "P_MPa": self.P_MPa,
@@ -1680,12 +1734,21 @@ class PipelineExpertEngine:
             "min_welds": min_welds,
             "auto_pad": auto_pad,
             "hydrotest": hydrotest,
+            "hot_tap": hot_tap_guidance,
+            "sif": sif,
+            "combined_stress": combined_stress,
             "weep_hole_spec": "1/8 in - 1/4 in (3.2 - 6.4 mm) NPT / Open during welding",
             "Recommendations": dm_res["Recommendations"],
             "messages": self.messages,
-            "ClauseTrace": dm_res.get("ClauseTrace", []),
+            "ClauseTrace": list(dm_res.get("ClauseTrace", []))
+            + ([{"type": "clause", "ref": "Para 831.4.1(b)", "note": "β < 45° durumunda basit alan telafisi yöntemi sınırlandırılır; FEA veya özel takviyeli tasarım ile doğrulama önerilir."}] if beta_fea_warning else []),
             "Assumptions": dm_res.get("Assumptions", []),
-            "Final_Action": "Verify manufacturer pressure rating, material certification, and installation details before final approval.",
+            "Final_Action": (
+                "Branşman açısı β < 45° olduğundan basit alan telafisi yeterli görülmez. Sonlu Elemanlar Analizi (FEA) "
+                "veya özel takviyeli tasarım ile mühendis doğrulaması gereklidir."
+                if beta_fea_warning
+                else "Verify manufacturer pressure rating, material certification, and installation details before final approval."
+            ),
         }
 
     # --- HTML RAPOR (MÜHENDİSLİK HESAP DOSYASI / CALCULATION DOSSIER) ---
@@ -1870,7 +1933,7 @@ class PipelineExpertEngine:
             {sign_html}
             <hr style="margin-top:20px; border:none; border-top:1px solid #BDC3C7;">
             <p style="font-size:10px; color:#7F8C8D; text-align:center;">
-                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.3 tarafından üretilmiştir.
+                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.4 tarafından üretilmiştir.
             </p>
         </body>
         </html>
@@ -1878,121 +1941,21 @@ class PipelineExpertEngine:
         return html
 
 
+
 # =============================================================================
-# METALURJİ VE SOUR SERVICE (NACE MR0175 / ISO 15156) YARDIMCILARI (FAZ 3)
+# CORE CALC MODULU (engine_math) - Mimari Faz 2
+# Saf hesap fonksiyonlari engine_math.py modulune tasinmistir; geriye uyumluluk
+# icin burada yeniden ihrac edilir.
 # =============================================================================
-
-def calculate_carbon_equivalent(chem: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Kimyasal bileşimden Karbon Eşdeğeri (CE_IIW) ve Ito-Bessyo (P_cm) hesaplar.
-    
-    Formüller:
-    CE_IIW = C + Mn/6 + (Cr + Mo + V)/5 + (Ni + Cu)/15
-    P_cm = C + Si/30 + (Mn + Cu + Cr)/20 + Ni/60 + Mo/15 + V/10 + 5*B
-    """
-    def _parse_val(val_any):
-        if val_any is None:
-            return 0.0
-        s = str(val_any).replace("max", "").replace("min", "").strip()
-        if "-" in s:
-            parts = s.split("-")
-            try:
-                return (float(parts[0]) + float(parts[1])) / 2.0
-            except ValueError:
-                return 0.0
-        try:
-            return float(s)
-        except ValueError:
-            return 0.0
-
-    c = _parse_val(chem.get("C", 0.15))
-    mn = _parse_val(chem.get("Mn", 1.20))
-    p = _parse_val(chem.get("P", 0.015))
-    s = _parse_val(chem.get("S", 0.005))
-    si = _parse_val(chem.get("Si", 0.30))
-    cr = _parse_val(chem.get("Cr", 0.0))
-    mo = _parse_val(chem.get("Mo", 0.0))
-    v = _parse_val(chem.get("V", 0.0))
-    ni = _parse_val(chem.get("Ni", 0.0))
-    cu = _parse_val(chem.get("Cu", 0.0))
-    b = _parse_val(chem.get("B", 0.0))
-
-    ce_iiw = c + (mn / 6.0) + ((cr + mo + v) / 5.0) + ((ni + cu) / 15.0)
-    p_cm = c + (si / 30.0) + ((mn + cu + cr) / 20.0) + (ni / 60.0) + (mo / 15.0) + (v / 10.0) + (5.0 * b)
-
-    preheat_needed = ce_iiw > 0.43 or p_cm > 0.22
-
-    return {
-        "CE_IIW": round(ce_iiw, 3),
-        "P_cm": round(p_cm, 3),
-        "preheat_needed": preheat_needed,
-        "C": c, "Mn": mn, "S": s, "P": p,
-    }
-
-
-def evaluate_sour_service_compliance(
-    pipe_chem: Dict[str, Any],
-    pipe_mech: Dict[str, Any],
-    is_sour_service: bool = False,
-    wt_mm: float = 0.0,
-) -> Dict[str, Any]:
-    """
-    NACE MR0175 / ISO 15156 Ekşi Gaz (H2S) ve ASME B31.8 Bölüm II Metalurji Analizi.
-    """
-    ce_data = calculate_carbon_equivalent(pipe_chem)
-    checks = []
-    compliant = True
-
-    # 1. Sertlik (Hardness) kontrolü (Maks 22 HRC / 248 HV / 237 HBW)
-    hardness_str = pipe_mech.get("Hardness", "197 HB max")
-    checks.append({
-        "Parameter": "Sertlik (Hardness)",
-        "Value": hardness_str,
-        "Limit": "Maks. 22 HRC / 248 HV / 237 HBW (NACE MR0175 Tablo A.1)",
-        "Pass": True,
-    })
-
-    # 2. Kükürt (Sulfur) kontrolü (HIC dayanımı için S <= 0.002% veya 0.005%)
-    s_val = ce_data["S"]
-    s_pass = s_val <= 0.005 if is_sour_service else True
-    checks.append({
-        "Parameter": "Kükürt İçeriği (S)",
-        "Value": f"%{s_val:.3f}",
-        "Limit": "Maks. %0.002 - %0.005 (HIC Direnci)",
-        "Pass": s_pass,
-    })
-    if not s_pass and is_sour_service:
-        compliant = False
-
-    # 3. Karbon Eşdeğeri (CE_IIW)
-    ce_pass = ce_data["CE_IIW"] <= 0.43 if is_sour_service else True
-    checks.append({
-        "Parameter": "Karbon Eşdeğeri (CE_IIW)",
-        "Value": f"{ce_data['CE_IIW']:.3f}",
-        "Limit": "Maks. 0.43 (Ekşi Gaz & Kaynaklanabilirlik)",
-        "Pass": ce_pass,
-    })
-    if not ce_pass and is_sour_service:
-        compliant = False
-
-    # 4. PWHT (Gerilim Giderme Isıl İşlemi)
-    pwht_required = wt_mm > 32.0 or (is_sour_service and ce_data["CE_IIW"] > 0.43)
-    checks.append({
-        "Parameter": "PWHT Isıl İşlem",
-        "Value": f"WT = {wt_mm:.1f} mm",
-        "Limit": "WT > 32 mm ise ASME B31.8 zorunlu",
-        "Pass": not pwht_required,
-    })
-
-    return {
-        "is_sour_service": is_sour_service,
-        "compliant": compliant,
-        "ce_data": ce_data,
-        "checks": checks,
-        "pwht_required": pwht_required,
-    }
-
-
+from engine_math import (  # noqa: F401,E402
+    calculate_carbon_equivalent,
+    classify_sour_service,
+    evaluate_sour_service_compliance,
+    check_hot_tap_cutter_clearance,
+    evaluate_hot_tap_welding,
+    compute_branch_sif,
+    evaluate_combined_stress,
+)
 
 def _normalize_selected_fitting_label(label):
     """Map UI fitting labels to comparable fitting tokens."""

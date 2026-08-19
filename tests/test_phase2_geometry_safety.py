@@ -8,6 +8,10 @@ from engine import (
     evaluate_minimum_weld_sizes,
     auto_size_reinforcement_pad,
     evaluate_hydrotest_pressure,
+    check_hot_tap_cutter_clearance,
+    evaluate_hot_tap_welding,
+    compute_branch_sif,
+    evaluate_combined_stress,
     PipelineExpertEngine,
     InputValidator,
 )
@@ -56,6 +60,38 @@ class TestAcuteAngleBranch:
         # A_req(45 deg) = A_req(90 deg) / sin(45 deg) = A_req * 1.4142
         assert pytest.approx(res_45["A_req"], 0.05) == res_90["A_req"] / math.sin(math.radians(45))
         assert res_45["d_opening"] > res_90["d_opening"]
+
+    def test_angle_below_45_raises_fea_critical_warning(self, standard_pipes):
+        run, branch = standard_pipes
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+            branch_angle_deg=35.0
+        )
+        res = eng.analyze(run, branch)
+        assert res["status"] == "OK"
+        # Kritik FEA uyarısı mesaj olarak düşmelidir
+        assert any(
+            m.get("level") == "error" and "FEA" in m.get("text", "")
+            for m in res["messages"]
+        )
+        # Clause trace'e Para 831.4.1(b) eklenmelidir
+        assert any("831.4.1(b)" in t.get("ref", "") for t in res["ClauseTrace"])
+        # Final_Action FEA doğrulaması talep etmelidir
+        assert "FEA" in res["Final_Action"]
+
+    def test_angle_45_has_no_fea_warning(self, standard_pipes):
+        run, branch = standard_pipes
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+            branch_angle_deg=45.0
+        )
+        res = eng.analyze(run, branch)
+        assert res["status"] == "OK"
+        assert not any("FEA" in m.get("text", "") for m in res["messages"])
 
 
 class TestMinimumWeldSizes:
@@ -138,6 +174,87 @@ class TestHotTapBurnThroughSafety:
         )
         res = eng.analyze(run, branch)
         assert any("burn-through" in m["text"].lower() or "yanma" in m["text"].lower() for m in res["messages"])
+
+
+class TestHotTapWeldingAndCutter:
+    """API 1104 Annex B in-service welding & cutter clearance tests."""
+
+    def test_cutter_clearance_pass(self):
+        res = check_hot_tap_cutter_clearance(cutter_od_mm=90.0, branch_id_mm=100.0)
+        assert res["pass"] is True
+        assert res["clearance_mm"] == pytest.approx(10.0)
+
+    def test_cutter_clearance_fail_geometric_conflict(self):
+        res = check_hot_tap_cutter_clearance(cutter_od_mm=110.0, branch_id_mm=100.0)
+        assert res["pass"] is False
+        assert "ÇAKIŞMA" in res["message"]
+
+    def test_preheat_low_ce(self):
+        res = evaluate_hot_tap_welding(ce_iiw=0.25, wt_mm=10.0)
+        assert res["preheat_min_c"] == 50.0
+        assert res["max_heat_input_kj_mm"] == 1.5
+
+    def test_preheat_high_ce(self):
+        res = evaluate_hot_tap_welding(ce_iiw=0.45, wt_mm=10.0)
+        assert res["preheat_min_c"] == 150.0
+
+    def test_max_heat_input_capped_for_thin_wall(self):
+        res = evaluate_hot_tap_welding(ce_iiw=0.30, wt_mm=4.0)
+        assert res["max_heat_input_kj_mm"] == 0.8
+
+    def test_excessive_heat_input_triggers_warning(self):
+        res = evaluate_hot_tap_welding(ce_iiw=0.30, wt_mm=10.0, heat_input_kj_mm=2.0)
+        assert res["heat_input_warning"] is not None
+        assert "aşıyor" in res["heat_input_warning"]
+
+    def test_analyze_hot_tap_includes_guidance(self):
+        run = {"OD_mm": 323.8, "WT_mm": 9.5, "SMYS_MPa": 245.0, "Standard": "API 5L", "Grade": "Grade B", "NPS": "12"}
+        branch = {"OD_mm": 114.3, "WT_mm": 6.0, "SMYS_MPa": 245.0, "Standard": "API 5L", "Grade": "Grade B", "NPS": "4"}
+        eng = PipelineExpertEngine(
+            P_val=20.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="Hot Tap", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0
+        )
+        res = eng.analyze(run, branch)
+        assert res["hot_tap"] is not None
+        assert res["hot_tap"]["max_heat_input_kj_mm"] > 0.0
+        assert any("API 1104 Annex B" in m["text"] for m in res["messages"])
+
+
+class TestSIFAndCombinedStress:
+    """ASME B31.8 Appendix E SIF & combined (Von Mises) stress tests."""
+
+    def test_unreinforced_sif_higher_than_olet(self):
+        fab = compute_branch_sif(609.6, 12.8, 273.0, 9.3, "FABRICATED BRANCH")
+        olet = compute_branch_sif(609.6, 12.8, 273.0, 9.3, "WELDOLET")
+        assert fab["ii"] > olet["ii"]
+        assert fab["io"] > fab["ii"]
+
+    def test_sif_increases_with_branch_run_ratio(self):
+        small = compute_branch_sif(609.6, 12.8, 114.3, 6.0, "FABRICATED BRANCH")
+        large = compute_branch_sif(609.6, 12.8, 406.4, 6.0, "FABRICATED BRANCH")
+        assert large["ii"] > small["ii"]
+
+    def test_combined_stress_pass_and_fail(self):
+        ok = evaluate_combined_stress(hoop_mpa=150.0, axial_mpa=20.0, bending_mpa=30.0, shear_mpa=10.0, sif_ii=1.5, sif_io=1.6, allowable_mpa=360.0)
+        assert ok["pass"] is True
+        bad = evaluate_combined_stress(hoop_mpa=350.0, axial_mpa=100.0, bending_mpa=150.0, shear_mpa=80.0, sif_ii=2.0, sif_io=2.2, allowable_mpa=360.0)
+        assert bad["pass"] is False
+        assert bad["utilization"] > 1.0
+
+    def test_analyze_includes_sif_and_combined_stress(self):
+        run = {"OD_mm": 609.6, "WT_mm": 14.3, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3, "SMYS_MPa": 245.0, "Standard": "ASTM A106", "Grade": "Grade B", "NPS": "10"}
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+            branch_angle_deg=90.0
+        )
+        res = eng.analyze(run, branch, selected_fitting_type="WELDOLET")
+        assert res["sif"]["ii"] > 0.0
+        assert res["combined_stress"]["von_mises_mpa"] > 0.0
+        assert res["combined_stress"]["allowable_mpa"] > 0.0
 
 
 class TestHydrotestEvaluation:

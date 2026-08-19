@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer V3.3
+ASME B31.8 Pipeline Designer V3.4
 Dinamik ve Gerçekçi 2D CAD Kesit Çizimi (CAD Engineering Cross-Section Diagram)
 Boru eğriliği, açılı (lateral) branşman geometrisi, gerçekçi kaynak dikişi profilleri ve CAD ölçülendirme.
 """

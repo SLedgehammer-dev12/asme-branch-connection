@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.3
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.4
 """
 
 import streamlit as st
@@ -12,6 +12,9 @@ from engine import (
 from ui.ui_diagram import create_cross_section_figure
 from ui.ui_diagram_3d import create_3d_cad_model_figure
 from ui.ui_utils import show_engine_messages, render_trace_block
+from engine_math import compare_scenarios
+from units import UnitSystem
+from report_pdf import ReportMeta, build_pdf_report
 import fitting_database as db
 
 FITTING_MATERIALS_DB = db.FITTING_MATERIALS_BY_STANDARD
@@ -41,6 +44,13 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     mill_tol_percent = eng_kwargs.get("mill_tol_percent", 12.5)
     thickness_basis = eng_kwargs.get("thickness_basis", "nominal")
     is_sour = eng_kwargs.get("is_sour_service", False)
+
+    # Faz 3: Birim sistemi bilgisi
+    us = UnitSystem(st.session_state.get("unit_system", "metric"))
+    st.caption(
+        f"Birim Sistemi: **{us.describe()['system'].capitalize()}** "
+        f"({us.describe()['length_unit']} / {us.describe()['pressure_unit']} / {us.describe()['temp_unit']})"
+    )
 
     # Durum kartı
     if is_exempt:
@@ -157,8 +167,30 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         st.markdown("##### NACE MR0175 / ISO 15156 Ekşi Gaz ve Karbon Eşdeğeri")
         pipe_chem = {"C": 0.12, "Mn": 1.20, "Si": 0.30, "S": 0.003, "P": 0.015}
         pipe_mech = {"Hardness": "197 HB max"}
-        sour_res = evaluate_sour_service_compliance(pipe_chem, pipe_mech, is_sour_service=is_sour, wt_mm=ar["wt_h_net"])
-        
+
+        h2s_col, h2s_note = st.columns([1, 2])
+        with h2s_col:
+            h2s_ppm = st.number_input(
+                "H₂S Konsantrasyonu (ppm)",
+                value=0.0,
+                min_value=0.0,
+                step=1.0,
+                help="H2S mol oranı (ppm). Girildiğinde p_H2S otomatik hesaplanır ve sour sınıfı belirlenir.",
+            )
+        sour_res = evaluate_sour_service_compliance(
+            pipe_chem, pipe_mech, is_sour_service=is_sour, wt_mm=ar["wt_h_net"],
+            h2s_ppm=h2s_ppm, pressure_mpa=ar.get("P_MPa", 0.0),
+        )
+        sour_class = sour_res.get("sour_class")
+        with h2s_note:
+            if sour_class is not None:
+                if sour_class["is_sour"]:
+                    st.warning(f"⚠️ {sour_class['message']}")
+                else:
+                    st.success(f"✅ {sour_class['message']}")
+            else:
+                st.caption("H₂S konsantrasyonu girilmedi — sour sınıflandırması yapılmadı.")
+
         cm1, cm2 = st.columns(2)
         with cm1:
             st.write(f"**Karbon Eşdeğeri (CE_IIW):** `{sour_res['ce_data']['CE_IIW']}` (Maks. 0.43)")
@@ -196,6 +228,9 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         ar.get("Assumptions", []),
         title="📜 Clause Trace ve Standart Referansları",
     )
+
+    # Faz 3: What-If Senaryo Karşılaştırması
+    render_whatif_comparison(ar, run_data, branch_data, selected_fitting, eng_kwargs)
 
     # Final Action
     if ar.get("Final_Action"):
@@ -246,6 +281,43 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         )
     except Exception as e:
         st.error(f"Rapor oluşturulamadı: {e}")
+
+    # Faz 4: Doğrudan PDF hesap föyü
+    st.caption("İmzalı / kaşeli resmi PDF hesap föyü:")
+    checked_by = st.text_input("Kontrol Eden Mühendis", value="Kontrol Mühendisi", key="pdf_checked")
+    approved_by = st.text_input("Onaylayan Mühendis", value="Onay Mühendisi", key="pdf_approved")
+    rev_no = st.text_input("Revizyon No", value="0", key="pdf_rev")
+    if st.button("📄 PDF Hesap Föyü Oluştur ve İndir", use_container_width=True):
+        try:
+            import os
+            import tempfile
+            meta = ReportMeta(
+                project_name=proj_name,
+                doc_number=doc_no,
+                revision=rev_no,
+                prepared_by=prep_by,
+                checked_by=checked_by,
+                approved_by=approved_by,
+                revision_history=[{"rev": rev_no, "date": "2026", "desc": "Revizyon"}],
+            )
+            tmpdir = tempfile.mkdtemp()
+            pdf_path = os.path.join(tmpdir, f"{doc_no}_dossier.pdf")
+            pdf_res = build_pdf_report(ar, meta, pdf_path)
+            if pdf_res["error"]:
+                st.warning(pdf_res["error"])
+            else:
+                with open(pdf_path, "rb") as f:
+                    pdf_bytes = f.read()
+                st.download_button(
+                    label="⬇️ PDF Hesap Föyünü İndir",
+                    data=pdf_bytes,
+                    file_name=f"{doc_no}_dossier.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="secondary",
+                )
+        except Exception as e:
+            st.error(f"PDF oluşturulamadı: {e}")
 
     # Sıfırla
     if st.button("🔄 Yeni Analiz Başlat", use_container_width=True):
@@ -417,3 +489,47 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         st.session_state.analysis_results = res
         st.rerun()
 
+
+
+def render_whatif_comparison(ar, run_data, branch_data, selected_fitting, eng_kwargs):
+    """Faz 3: What-If senaryo karsilastirma bolumu."""
+    if not ar or ar.get("status") != "OK":
+        return
+
+    if "whatif_scenarios" not in st.session_state:
+        st.session_state.whatif_scenarios = []
+
+    st.markdown("---")
+    st.subheader("🆚 What-If Senaryo Karşılaştırması")
+
+    c_add, c_clear, _ = st.columns([1, 1, 4])
+    with c_add:
+        if st.button("📌 Bu Senaryoyu Karşılaştırmaya Ekle", key="whatif_add"):
+            label = f"{eng_kwargs.get('P_val', 0)} {eng_kwargs.get('P_unit', 'MPa')} | {run_data.get('NPS','?')}→{branch_data.get('NPS','?')} | {selected_fitting or '--'}"
+            st.session_state.whatif_scenarios.append(
+                {"label": label, "result": ar}
+            )
+            st.success("Eklendi!")
+    with c_clear:
+        if st.button("🗑️ Temizle", key="whatif_clear"):
+            st.session_state.whatif_scenarios = []
+            st.rerun()
+
+    scens = st.session_state.whatif_scenarios
+    if scens:
+        st.caption(f"{len(scens)} senaryo karşılaştırılıyor.")
+        for s in scens:
+            st.caption(f"- {s['label']}")
+        cmp = compare_scenarios([s["result"] for s in scens])
+        rows = []
+        for row in cmp["rows"]:
+            entry = {"Metrik": row["metrik"]}
+            for i, name in enumerate(cmp["names"]):
+                val = row.get(f"scenario_{i}")
+                if isinstance(val, float):
+                    val = f"{val:.2f}"
+                entry[name] = val
+            rows.append(entry)
+        st.dataframe(rows, use_container_width=True)
+    else:
+        st.info("Henüz senaryo eklenmedi. Analiz sonuçlarını karşılaştırmak için ekleyin.")
