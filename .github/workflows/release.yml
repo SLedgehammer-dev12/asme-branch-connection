@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.5.0)"
+        description: "Release version tag (e.g. v3.5.1)"
         required: true
-        default: "v3.5.0"
+        default: "v3.5.1"
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
-          if (-not $ver) { $ver = 'v3.5.0' }
+          if (-not $ver) { $ver = 'v3.5.1' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -116,7 +116,7 @@ jobs:
             VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.5.0"
+            VER="v3.5.1"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
@@ -169,7 +169,7 @@ jobs:
             TAG="${{ inputs.version }}"
           fi
           if [[ -z "$TAG" ]]; then
-            TAG="v3.5.0"
+            TAG="v3.5.1"
           fi
 
           cat << 'EOF' > release_notes.md

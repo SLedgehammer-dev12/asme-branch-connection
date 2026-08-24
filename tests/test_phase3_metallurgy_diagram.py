@@ -175,15 +175,28 @@ class TestDiagramGeneration:
             fig = create_3d_cad_model_figure(run, branch, analysis_res, pad, fitting_type=ft)
             return [t.name for t in fig.data]
 
-        # OLET -> dövme olet gövdesi
-        assert any("Olet Gövdesi" in n for n in names("WELDOLET / SOCKOLET / OLET", pad_off))
-        # Welding Tee -> fabrika boyun yakası
-        assert any("Welding Tee Boynu" in n for n in names("WELDING TEE (Factory)", pad_off))
-        # Split Tee / Sleeve -> full encirclement manşon + boyuna kaynak
-        st_names = names("SPLIT TEE", pad_on)
+        # OLET (birleşik label) -> weldolet gövdesi
+        assert any("Weldolet Gövdesi" in n for n in names("WELDOLET / SOCKOLET / OLET", pad_off))
+        # Sockolet -> ayrı sockolet gövdesi + soket yuvası
+        sock = names("SOCKOLET", pad_off)
+        assert any("Sockolet Gövdesi" in n for n in sock)
+        assert any("Socket Bore" in n for n in sock)
+        # Welding Tee -> yaka & boyun
+        assert any("Welding Tee Yaka" in n for n in names("WELDING TEE (Factory)", pad_off))
+        # Split Tee Type B -> full encirclement manşon + boyuna + uç kaynaklar
+        ar_b = {"branch_angle_deg": 90.0, "split_tee": {"split_type": "Type B", "T_sleeve_mm": 12.0}}
+        st_names = [t.name for t in create_3d_cad_model_figure(run, branch, ar_b, pad_on, fitting_type="SPLIT TEE").data]
         assert any("Full Encirclement Sleeve" in n for n in st_names)
-        assert any("Sleeve Boyuna" in n for n in st_names)
-        # Fabricated branch -> olet/sleeve trace yok, yalnızca temel
+        assert any("Boyuna Kaynağı" in n for n in st_names)
+        assert any("Çevresel Kaynağı" in n for n in st_names)
+        # SADDLE -> yarım eyer manşonu + kenar kaynağı, üst ped YOK
+        saddle = names("SADDLE (Half-Sleeve)", pad_on)
+        assert any("Saddle (Yarım Eyer" in n for n in saddle)
+        assert not any("Takviye Pedi / Saddle" in n for n in saddle)
+        # Fabricated branch -> olet/sleeve trace yok, yalnızca temel + açık ağız
         fab = names("FABRICATED BRANCH (Takviyesiz)", pad_off)
         assert not any("Olet Gövdesi" in n for n in fab)
         assert not any("Full Encirclement Sleeve" in n for n in fab)
+        # Genel detay katmanları her modelde mevcut: açık ağız halkası + ebat etiketi
+        assert any("Açık Ağız" in n for n in fab)
+        assert any("Ebat" in n for n in fab)

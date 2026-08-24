@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.5
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.5.1
 """
 
 import streamlit as st
@@ -401,6 +401,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             "WELDING TEE (Factory)",
             "SPLIT TEE",
             "FULL ENCIRCLEMENT SLEEVE",
+            "SADDLE (Half-Sleeve)",
             "FABRICATED BRANCH (Takviyesiz)",
         ],
     )
@@ -429,7 +430,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         "FULL ENCIRCLEMENT SLEEVE",
     ]:
         st.markdown("##### Kaynak ölçüleri")
-        if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE"]:
+        if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE", "SADDLE (Half-Sleeve)"]:
             cw1, cw2 = st.columns(2)
             w_inner = cw1.number_input(
                 "İç kaynak bacak boyu (branşman - pad/header) [mm]",
@@ -448,7 +449,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             weld_legs["inner"] = w_inner
             weld_legs["outer"] = 0.0
 
-    if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE"]:
+    if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE", "SADDLE (Half-Sleeve)"]:
         pad_props["has_pad"] = True
         st.markdown("##### Takviye pedi / manşon boyutları")
         cp1, cp2 = st.columns(2)

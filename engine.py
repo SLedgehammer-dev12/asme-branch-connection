@@ -2066,7 +2066,7 @@ class PipelineExpertEngine:
             {sign_html}
             <hr style="margin-top:20px; border:none; border-top:1px solid #BDC3C7;">
             <p style="font-size:10px; color:#7F8C8D; text-align:center;">
-                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.5 tarafından üretilmiştir.
+                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.5.1 tarafından üretilmiştir.
             </p>
         </body>
         </html>
@@ -2102,6 +2102,7 @@ def _normalize_selected_fitting_label(label):
         "WELDING TEE (FACTORY)": ["WELDING TEE", "FACTORY WELDING TEE", "TEE"],
         "SPLIT TEE": ["SPLIT TEE", "FULL ENCIRCLEMENT SPLIT TEE"],
         "FULL ENCIRCLEMENT SLEEVE": ["FULL ENCIRCLEMENT SLEEVE", "FULL ENCIRCLEMENT", "SLEEVE"],
+        "SADDLE (HALF-SLEEVE)": ["SADDLE", "HALF SLEEVE"],
         "FABRICATED BRANCH (TAKVIYESIZ)": ["FABRICATED BRANCH"],
     }
     return token_map.get(normalized, [normalized])
