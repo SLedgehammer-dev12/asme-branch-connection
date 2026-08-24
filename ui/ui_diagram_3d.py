@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer V3.4
+ASME B31.8 Pipeline Designer V3.5
 İnteraktif 3D CAD Boru ve Branşman Modeli (3D CAD Surface / Mesh Diagram)
 Plotly 3D ile 360° dönebilen ana boru, branşman, takviye pedi (saddle pad), kaynak dikişi ve vent deliği modeli.
 """
@@ -15,10 +15,18 @@ def create_3d_cad_model_figure(
     branch_data: Dict[str, Any],
     analysis_res: Dict[str, Any],
     pad_props: Optional[Dict[str, Any]] = None,
-    branch_angle_deg: float = 90.0
+    branch_angle_deg: float = 90.0,
+    fitting_type: Optional[str] = None
 ) -> go.Figure:
     """
     3D CAD boru hattı ve branşman bağlantı modelini Plotly 3D Mesh / Surface kullanarak üretir.
+
+    Seçilen fitting tipine göre bağlantı görseli özelleştirilir:
+      - WELDOLET / SOCKOLET / OLET : Dövme (forged) olet gövdesi (frustum/konik gövde)
+      - WELDING TEE               : Fabrika tee boyun yakası (kalın boyun + geçiş)
+      - SPLIT TEE / SLEEVE        : Ana hattı çevreleyen tam manşon (full encirclement sleeve)
+      - REINFORCING PAD           : Eyer takviye pedi (pad_props ile)
+      - FABRICATED BRANCH         : Takviyesiz çıplak branşman
     """
     fig = go.Figure()
 
@@ -38,6 +46,12 @@ def create_3d_cad_model_figure(
     t_pad = float(pad_props.get("T_pad", 10.0)) if has_pad else 0.0
     d_pad = float(pad_props.get("D_pad", branch_od * 1.6)) if has_pad else branch_od
     r_pad = d_pad / 2.0
+
+    # Fitting tipi normalizasyonu
+    ftype = (fitting_type or "").upper()
+    is_olet = any(k in ftype for k in ("OLET", "WELDOLET", "SOCKOLET"))
+    is_welding_tee = "WELDING TEE" in ftype or "FACTORY TEE" in ftype
+    is_sleeve = "SLEEVE" in ftype or "SPLIT TEE" in ftype
 
     beta_deg = float(analysis_res.get("branch_angle_deg", branch_angle_deg or 90.0))
     beta_rad = math.radians(beta_deg)
@@ -159,9 +173,91 @@ def create_3d_cad_model_figure(
         ))
 
     # -------------------------------------------------------------
+    # 3.5 SEÇİLEN FİTTİNG'E GÖRE ÖZELLEŞTİRİLMİŞ BAĞLANTI GÖRSELİ
+    # -------------------------------------------------------------
+    if is_olet:
+        # Dövme (Forged) Olet / Weldolet / Sockolet gövdesi: konik (frustum) gövde
+        n_z2 = 25
+        n_phi2 = 40
+        h_olet = max(r_b * 1.2, 60.0)
+        z_olet = np.linspace(r_h * 0.98, r_h + h_olet, n_z2)
+        phi_olet = np.linspace(0, 2 * np.pi, n_phi2)
+        ZO, PHIO = np.meshgrid(z_olet, phi_olet)
+        # Gövde: altta geniş (base), üstte branşman çapına daralır
+        frac = (ZO - r_h * 0.98) / h_olet
+        r_olet = r_b * 0.55 + (r_b * 0.35) * (1.0 - frac)
+        XO = r_olet * np.cos(PHIO)
+        YO = r_olet * np.sin(PHIO)
+        fig.add_trace(go.Surface(
+            x=XO, y=YO, z=ZO,
+            colorscale=[[0, "#B45309"], [0.5, "#D97706"], [1, "#F59E0B"]],
+            showscale=False, opacity=0.98,
+            name="Olet Gövdesi (Forged)",
+            hoverinfo="text",
+            hovertext=f"{fitting_type}: Dövme (forged) integral takviyeli olet gövdesi (MSS SP-97)",
+            lighting=dict(ambient=0.5, diffuse=0.8, specular=0.7, roughness=0.2)
+        ))
+
+    elif is_welding_tee:
+        # Fabrika Welding Tee boyun yakası: kalın boyun + yumuşak geçiş halkası
+        n_z3 = 25
+        n_phi3 = 40
+        h_neck = max(r_b * 0.9, 55.0)
+        z_neck = np.linspace(r_h * 0.99, r_h + h_neck, n_z3)
+        phi_neck = np.linspace(0, 2 * np.pi, n_phi3)
+        ZN, PHIN = np.meshgrid(z_neck, phi_neck)
+        frac_n = (ZN - r_h * 0.99) / h_neck
+        # Yaka: tabanda genişletilmiş, boyunda branşman çapı
+        r_neck = r_b * 0.85 + (r_b * 0.35) * (1.0 - frac_n)
+        XN = r_neck * np.cos(PHIN)
+        YN = r_neck * np.sin(PHIN)
+        fig.add_trace(go.Surface(
+            x=XN, y=YN, z=ZN,
+            colorscale=[[0, "#334155"], [0.5, "#475569"], [1, "#64748B"]],
+            showscale=False, opacity=0.98,
+            name="Welding Tee Boynu (Factory)",
+            hoverinfo="text",
+            hovertext=f"{fitting_type}: Fabrika welding tee kalın boyun yakası (ASME B16.9)",
+            lighting=dict(ambient=0.5, diffuse=0.8, specular=0.6, roughness=0.2)
+        ))
+
+    elif is_sleeve:
+        # Full Encirclement Split Tee / Sleeve: ana hattı çevreleyen tam manşon
+        t_sleeve = t_pad if has_pad and t_pad > 0 else max(6.0, run_wt * 0.75)
+        r_slv = r_h + t_sleeve
+        l_sleeve = max(d_pad, branch_od * 2.0, 300.0)
+        n_xs = 30
+        n_ths = 40
+        xs = np.linspace(-l_sleeve / 2.0, l_sleeve / 2.0, n_xs)
+        ths = np.linspace(0, 2 * np.pi, n_ths)
+        XS, THS = np.meshgrid(xs, ths)
+        YS = r_slv * np.cos(THS)
+        ZS = r_slv * np.sin(THS)
+        fig.add_trace(go.Surface(
+            x=XS, y=YS, z=ZS,
+            colorscale=[[0, "#0E7490"], [0.5, "#0891B2"], [1, "#22D3EE"]],
+            showscale=False, opacity=0.55,
+            name="Full Encirclement Sleeve (Manşon)",
+            hoverinfo="text",
+            hovertext=f"{fitting_type}: Ana hattı çevreleyen tam manşon (T_sleeve ≈ {t_sleeve:.1f} mm)",
+            lighting=dict(ambient=0.5, diffuse=0.7, specular=0.6, roughness=0.3)
+        ))
+        # Manşon boyuna kaynak hattı (üst ve alt eksen boyunca)
+        sl_x = [0.0, 0.0]
+        sl_y = [0.0, 0.0]
+        sl_z = [-r_slv, r_slv]
+        fig.add_trace(go.Scatter3d(
+            x=sl_x, y=sl_y, z=sl_z,
+            mode="lines",
+            line=dict(color="#F59E0B", width=4),
+            name="Sleeve Boyuna Kaynağı",
+            hoverinfo="text",
+            hovertext="Manşon boyuna kök kaynağı (backing strip / ASME PCC-2)"
+        ))
+
+    # -------------------------------------------------------------
     # 4. 3D KAYNAK DİKİŞİ HALKALARI (FILLET WELD BEADS)
     # -------------------------------------------------------------
-    # Branşman-Ana Hat / Pad Birleşim Kaynağı (Halka)
     weld_phi = np.linspace(0, 2 * np.pi, 50)
     w_ring_r = r_b + 4.0
     w_x = w_ring_r * np.cos(weld_phi)
@@ -197,7 +293,7 @@ def create_3d_cad_model_figure(
     # -------------------------------------------------------------
     fig.update_layout(
         title=dict(
-            text=f"<b>3D CAD İnteraktif Boru & Branşman Modeli</b> — {run_od:.0f} mm × {branch_od:.0f} mm (Açı: {beta_deg:.1f}°)",
+            text=f"<b>3D CAD İnteraktif Boru & Branşman Modeli</b> — {run_od:.0f} mm × {branch_od:.0f} mm (Açı: {beta_deg:.1f}°) | Fitting: {fitting_type or 'Fabricated Branch'}",
             font=dict(size=15, color="#0F172A", family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
         ),
         scene=dict(

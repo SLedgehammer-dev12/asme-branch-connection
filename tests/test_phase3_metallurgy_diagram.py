@@ -161,3 +161,29 @@ class TestDiagramGeneration:
         fig_3d = create_3d_cad_model_figure(run, branch, analysis_res, pad_props, branch_angle_deg=90.0)
         assert fig_3d is not None
         assert len(fig_3d.data) >= 3  # Header surface, branch surface, pad surface, welds
+
+    def test_3d_fitting_specific_traces(self):
+        """3D model seçilen fitting tipine göre özel bağlantı görselini içermelidir."""
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {"branch_angle_deg": 90.0}
+
+        pad_off = {"has_pad": False}
+        pad_on = {"has_pad": True, "T_pad": 12.0, "D_pad": 400.0}
+
+        def names(ft, pad):
+            fig = create_3d_cad_model_figure(run, branch, analysis_res, pad, fitting_type=ft)
+            return [t.name for t in fig.data]
+
+        # OLET -> dövme olet gövdesi
+        assert any("Olet Gövdesi" in n for n in names("WELDOLET / SOCKOLET / OLET", pad_off))
+        # Welding Tee -> fabrika boyun yakası
+        assert any("Welding Tee Boynu" in n for n in names("WELDING TEE (Factory)", pad_off))
+        # Split Tee / Sleeve -> full encirclement manşon + boyuna kaynak
+        st_names = names("SPLIT TEE", pad_on)
+        assert any("Full Encirclement Sleeve" in n for n in st_names)
+        assert any("Sleeve Boyuna" in n for n in st_names)
+        # Fabricated branch -> olet/sleeve trace yok, yalnızca temel
+        fab = names("FABRICATED BRANCH (Takviyesiz)", pad_off)
+        assert not any("Olet Gövdesi" in n for n in fab)
+        assert not any("Full Encirclement Sleeve" in n for n in fab)

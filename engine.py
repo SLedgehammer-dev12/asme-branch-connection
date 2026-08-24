@@ -1334,6 +1334,10 @@ class PipelineExpertEngine:
         seam_type: Optional[str] = None,
         facility_type: Optional[str] = None,
         location_class: Optional[str] = None,
+        hot_tap_flow_ms: Optional[float] = None,
+        hot_tap_d_pen_mm: float = 2.0,
+        hot_tap_fluid: str = "gas",
+        split_tee_type: str = "Type B",
     ):
         """
         Args:
@@ -1368,6 +1372,10 @@ class PipelineExpertEngine:
         self.seam_type = seam_type
         self.facility_type = facility_type
         self.location_class = location_class
+        self.hot_tap_flow_ms = hot_tap_flow_ms
+        self.hot_tap_d_pen_mm = hot_tap_d_pen_mm
+        self.hot_tap_fluid = hot_tap_fluid
+        self.split_tee_type = split_tee_type
 
         if isinstance(weld_legs, dict):
             self.weld_legs = dict(weld_legs)
@@ -1615,6 +1623,7 @@ class PipelineExpertEngine:
             hot_tap_guidance = evaluate_hot_tap_welding(
                 ce_iiw=0.38,
                 wt_mm=wt_h_net,
+                flow_velocity_ms=self.hot_tap_flow_ms,
             )
             self._add_message(
                 "info",
@@ -1628,6 +1637,47 @@ class PipelineExpertEngine:
                 f"Hot Tap Cutter Kontrolü: Branşman iç çapı (ID) {branch_id:.1f} mm. Cutter seçimi bu iç çapa uygun (maks. cutter OD ≤ {branch_id:.1f} mm) olmalıdır.",
             )
             hot_tap_guidance["cutter_max_od_mm"] = branch_id
+
+            # Battelle / API RP 2201 güvenli maksimum işletme basıncı (P_safe)
+            hot_tap_safe = calculate_hot_tap_safe_pressure(
+                smys_mpa=run["SMYS_MPa"],
+                run_od_mm=run["OD_mm"],
+                wt_net_mm=wt_h_net,
+                d_pen_mm=self.hot_tap_d_pen_mm,
+                E=self.E,
+                F=self.F,
+                T=self.T,
+                operating_pressure_mpa=self.P_MPa,
+            )
+            self._add_message(
+                "info",
+                f"API RP 2201 / Battelle P_safe: {hot_tap_safe['message']}",
+            )
+            hot_tap_guidance["P_safe_MPa"] = hot_tap_safe["P_safe_MPa"]
+            hot_tap_guidance["t_effective_mm"] = hot_tap_safe["t_effective_mm"]
+            hot_tap_guidance["t_net_mm"] = hot_tap_safe["t_net_mm"]
+            hot_tap_guidance["d_penetration_mm"] = hot_tap_safe["d_penetration_mm"]
+            hot_tap_guidance["operating_pressure_MPa"] = hot_tap_safe["operating_pressure_MPa"]
+            hot_tap_guidance["derating_ratio"] = hot_tap_safe["derating_ratio"]
+            hot_tap_guidance["pass"] = hot_tap_safe["pass"]
+            if not hot_tap_safe["pass"]:
+                self._add_message(
+                    "error",
+                    f"KRİTİK: İşletme basıncı ({self.P_MPa:.2f} MPa), kaynak sırasındaki güvenli "
+                    f"maksimum basınçtan (P_safe = {hot_tap_safe['P_safe_MPa']:.2f} MPa) yüksek. "
+                    f"Canlı hat kaynağından önce basınç düşürme (pressure reduction) gereklidir.",
+                )
+
+            # Akış hızı (heat sink) termal kontrolü
+            flow_assessment = evaluate_hot_tap_flow_and_cooling(
+                fluid_type=self.hot_tap_fluid,
+                flow_velocity_ms=self.hot_tap_flow_ms,
+            )
+            self._add_message(
+                "info",
+                f"Hot Tap Akış (Heat Sink): {flow_assessment['message']}",
+            )
+            hot_tap_guidance["flow_assessment"] = flow_assessment
 
         A_avail = A1 + A2 + A3 + A4
         Missing_Area = max(0, A_req - A_avail)
@@ -1657,6 +1707,24 @@ class PipelineExpertEngine:
             f_sleeve=f_sleeve,
             target_pad_thickness=self.pad_props.get("T_pad") if self.pad_props.get("has_pad") else None,
         )
+
+        # Split Tee / Full Encirclement Sleeve mekanik doğrulaması (Type A/B)
+        split_tee = None
+        if selected_fitting_type and any(
+            k in selected_fitting_type.upper() for k in ["SPLIT TEE", "SLEEVE"]
+        ):
+            split_tee = evaluate_split_tee_design(
+                split_type=self.split_tee_type,
+                sleeve_wt_mm=self.pad_props.get("T_pad", 0.0),
+                t_req_h_mm=t_req_h,
+                branch_od_mm=branch["OD_mm"],
+                run_od_mm=run["OD_mm"],
+                d_opening_mm=d_opening,
+            )
+            self._add_message(
+                "warning" if not split_tee["thickness_pass"] else "info",
+                f"Split Tee / Sleeve ({split_tee['split_type']}): {split_tee['recommendation']}",
+            )
 
         # Hidrostatik Saha Testi Analizi
         hydrotest = evaluate_hydrotest_pressure(
@@ -1737,6 +1805,7 @@ class PipelineExpertEngine:
             "hot_tap": hot_tap_guidance,
             "sif": sif,
             "combined_stress": combined_stress,
+            "split_tee": split_tee,
             "weep_hole_spec": "1/8 in - 1/4 in (3.2 - 6.4 mm) NPT / Open during welding",
             "Recommendations": dm_res["Recommendations"],
             "messages": self.messages,
@@ -1894,6 +1963,70 @@ class PipelineExpertEngine:
         </table>
         """
 
+        # Hot Tap güvenlik & basınç analizi (API RP 2201 / Battelle)
+        if self.op_type == "Hot Tap":
+            ht = res.get("hot_tap") or {}
+            ps = ht.get("P_safe_MPa") or res.get("hot_tap_safe") or {}
+            flow = ht.get("flow_assessment") or {}
+            safety_html += f"""
+        <h2>3a. Hot Tap Güvenlik & Basınç Analizi (API RP 2201 / Battelle)</h2>
+        <table>
+            <tr><th>Parametre</th><th>Değer</th><th>Kriter / Standart</th><th>Değerlendirme</th></tr>
+            <tr>
+                <td>Güvenli Maksimum Basınç (P_safe)</td>
+                <td>{ht.get('P_safe_MPa','-')} MPa</td>
+                <td>P_safe = 2 × S_allow × (t_net - d_pen) / D (API RP 2201)</td>
+                <td>{'UYGUN' if ht.get('pass', False) else 'BASINÇ DÜŞÜRME GEREKLİ'}</td>
+            </tr>
+            <tr>
+                <td>Etkili Kalan Kalınlık (t_eff)</td>
+                <td>{ht.get('t_effective_mm','-')} mm (t_net {ht.get('t_net_mm','-')} - d_pen {ht.get('d_penetration_mm','-')})</td>
+                <td>Elektrot penetrasyonu düşüldükten sonra</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>Akış Hızı (Heat Sink)</td>
+                <td>{ht.get('flow_velocity_ms','-')} m/s</td>
+                <td>Önerilen: {flow.get('recommended_range','-')}</td>
+                <td>{flow.get('cooling','-')} (Burn-through: {flow.get('burn_through_risk','-')}, HIC: {flow.get('hicc_risk','-')})</td>
+            </tr>
+            <tr>
+                <td>Ön Isıtma / Isı Girdisi</td>
+                <td>≥ {ht.get('preheat_min_c','-')} °C, ≤ {ht.get('max_heat_input_kj_mm','-')} kJ/mm</td>
+                <td>API 1104 Annex B yorumu</td>
+                <td>-</td>
+            </tr>
+            <tr>
+                <td>Cutter Açıklığı</td>
+                <td>Maks. cutter OD ≤ {ht.get('cutter_max_od_mm','-')} mm</td>
+                <td>Branşman iç çapı (ID)</td>
+                <td>-</td>
+            </tr>
+        </table>
+        """
+
+        # Split Tee / Sleeve mekanik doğrulaması (Type A/B)
+        st = res.get("split_tee")
+        if st:
+            safety_html += f"""
+        <h2>3b. Split Tee / Sleeve Mekanik Doğrulaması ({st.get('split_type','-')})</h2>
+        <table>
+            <tr><th>Parametre</th><th>Değer</th><th>Kriter / Standart</th><th>Değerlendirme</th></tr>
+            <tr>
+                <td>Manşon Et Kalınlığı (T_sleeve)</td>
+                <td>{st.get('T_sleeve_mm','-')} mm</td>
+                <td>T_sleeve ≥ t_req_h ({st.get('t_req_h_mm','-')} mm)</td>
+                <td><span class="{'pass' if st.get('thickness_pass') else 'fail'}">{st.get('status','-')}</span></td>
+            </tr>
+            <tr>
+                <td>Min. Manşon Boyu</td>
+                <td>≈ {st.get('min_sleeve_length_mm','-')} mm</td>
+                <td>ASME PCC-2 / ASME B31.8 Para 831.4.2(h)</td>
+                <td>-</td>
+            </tr>
+        </table>
+        """
+
         rec_rows = ""
         for r in res.get("Recommendations", []):
             rec_rows += f"<tr><td><b>{r['Priority']}</b></td><td>{r['Type']}</td><td>{r['Std']}</td><td>{r['Desc']}</td></tr>"
@@ -1933,7 +2066,7 @@ class PipelineExpertEngine:
             {sign_html}
             <hr style="margin-top:20px; border:none; border-top:1px solid #BDC3C7;">
             <p style="font-size:10px; color:#7F8C8D; text-align:center;">
-                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.4 tarafından üretilmiştir.
+                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.5 tarafından üretilmiştir.
             </p>
         </body>
         </html>
@@ -1955,6 +2088,9 @@ from engine_math import (  # noqa: F401,E402
     evaluate_hot_tap_welding,
     compute_branch_sif,
     evaluate_combined_stress,
+    calculate_hot_tap_safe_pressure,
+    evaluate_hot_tap_flow_and_cooling,
+    evaluate_split_tee_design,
 )
 
 def _normalize_selected_fitting_label(label):

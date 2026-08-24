@@ -160,6 +160,48 @@ def build_pdf_report(
     ]))
     story.append(body_tbl)
 
+    # Hot Tap güvenlik & basınç analizi (API RP 2201 / Battelle)
+    ht = res.get("hot_tap") or {}
+    if ht and ht.get("P_safe_MPa") is not None:
+        story.append(Spacer(1, 8 * mm))
+        story.append(Paragraph("Hot Tap Güvenlik & Basınç Analizi (API RP 2201 / Battelle)", styles["Heading3"]))
+        flow = ht.get("flow_assessment") or {}
+        ht_rows = [
+            ["Parametre", "Değer", "Kriter"],
+            ["Güvenli Maks. Basınç (P_safe)", f"{ht.get('P_safe_MPa')} MPa", "P_safe = 2×S_allow×(t_net−d_pen)/D"],
+            ["Etkili Kalan Kalınlık (t_eff)", f"{ht.get('t_effective_mm')} mm", "t_net − d_pen (d_pen = {0})".format(ht.get("d_penetration_mm"))],
+            ["Ön Isıtma (Min)", f"≥ {ht.get('preheat_min_c')} °C", "API 1104 Annex B yorumu"],
+            ["Azami Isı Girdisi", f"≤ {ht.get('max_heat_input_kj_mm')} kJ/mm", "Burn-through kontrolü"],
+            ["Akış Hızı (Heat Sink)", f"{ht.get('flow_velocity_ms')} m/s", "Önerilen: {0}".format(flow.get("recommended_range", "-"))],
+            ["Durum", "UYGUN" if ht.get("pass") else "BASINÇ DÜŞÜRME GEREKLİ", "İşletme basıncı vs P_safe"],
+        ]
+        ht_tbl = Table(ht_rows, colWidths=[55 * mm, 55 * mm, 55 * mm])
+        ht_tbl.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(ht_tbl)
+
+    # Split Tee / Sleeve mekanik doğrulaması
+    st_res = res.get("split_tee")
+    if st_res:
+        story.append(Spacer(1, 8 * mm))
+        story.append(Paragraph(f"Split Tee / Sleeve Doğrulaması ({st_res.get('split_type', '-')})", styles["Heading3"]))
+        st_rows = [
+            ["Parametre", "Değer", "Kriter"],
+            ["Manşon Et Kalınlığı (T_sleeve)", f"{st_res.get('T_sleeve_mm')} mm", f"T_sleeve ≥ t_req_h ({st_res.get('t_req_h_mm')} mm)"],
+            ["Min. Manşon Boyu", f"≈ {st_res.get('min_sleeve_length_mm')} mm", "ASME PCC-2 / Para 831.4.2(h)"],
+            ["Durum", st_res.get("status", "-"), "Basınç taşıma / takviye"],
+        ]
+        st_tbl = Table(st_rows, colWidths=[55 * mm, 55 * mm, 55 * mm])
+        st_tbl.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ]))
+        story.append(st_tbl)
+
     # Onay imza bloğu
     story.append(Spacer(1, 12 * mm))
     story.append(Paragraph(

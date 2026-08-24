@@ -355,6 +355,192 @@ def evaluate_combined_stress(
     }
 
 
+def calculate_hot_tap_safe_pressure(
+    smys_mpa: float,
+    run_od_mm: float,
+    wt_net_mm: float,
+    d_pen_mm: float = 2.0,
+    E: float = 1.0,
+    F: float = 0.72,
+    T: float = 1.0,
+    operating_pressure_mpa: Optional[float] = None,
+    allowable_mpa: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Canlı hat (in-service) kaynağı sırasında güvenli maksimum işletme basıncı
+    (P_safe) hesabı. API RP 2201 / Battelle yorumu: kaynak bölgesinde etkili
+    kalan kalınlık, elektrot penetrasyon derinliği (d_pen) düşüldükten sonra
+    hesaplanır.
+
+        t_eff = t_net - d_pen
+        P_safe = 2 * S_allow * t_eff / D_run
+
+    S_allow = SMYS x F x E x T (veya kullanıcı tarafından verilen allowable).
+
+    NOT: d_pen ~ 1.5-2.5 mm tipik elektrot penetrasyonudur (repo yorumu);
+    normatif onay için lisanslı API RP 2201 kopyası ile doğrulanmalıdır.
+    """
+    D = max(1e-6, run_od_mm or 0.0)
+    t_net = max(0.0, wt_net_mm or 0.0)
+    d_pen = max(0.0, d_pen_mm or 0.0)
+    t_eff = max(0.0, t_net - d_pen)
+
+    if allowable_mpa is not None:
+        S_allow = max(0.0, allowable_mpa)
+    else:
+        S_allow = max(0.0, (smys_mpa or 0.0) * (F or 0.0) * (E or 0.0) * (T or 0.0))
+
+    p_safe = (2.0 * S_allow * t_eff / D) if D > 0.0 else 0.0
+    op = max(0.0, operating_pressure_mpa or 0.0)
+    if op > 0.0:
+        derating_ratio = p_safe / op
+    else:
+        derating_ratio = None
+
+    return {
+        "P_safe_MPa": round(p_safe, 3),
+        "t_effective_mm": round(t_eff, 3),
+        "d_penetration_mm": d_pen,
+        "t_net_mm": round(t_net, 3),
+        "S_allowable_MPa": round(S_allow, 3),
+        "run_od_mm": D,
+        "operating_pressure_MPa": op,
+        "derating_ratio": (round(derating_ratio, 3) if derating_ratio is not None else None),
+        "pass": p_safe >= op,
+        "message": (
+            f"t_eff = {t_net:.2f} - {d_pen:.1f} = {t_eff:.2f} mm; "
+            f"P_safe = 2 × {S_allow:.0f} × {t_eff:.2f} / {D:.1f} = {p_safe:.2f} MPa. "
+            f"İşletme basıncı {op:.2f} MPa {'GÜVENLİ' if p_safe >= op else 'GÜVENLİ DEĞİL - basınç düşürülmelidir'}."
+        ),
+    }
+
+
+def evaluate_hot_tap_flow_and_cooling(
+    fluid_type: str = "gas",
+    flow_velocity_ms: Optional[float] = None,
+) -> Dict[str, Any]:
+    """
+    Hot tap canlı hat kaynağında akış hızının (heat sink) soğuma ve risk üzerindeki
+    etkisini sınıflandırır.
+
+    - Gaz için önerilen güvenli akış aralığı ~1.5 - 15 m/s
+    - Sıvı için önerilen güvenli akış aralığı ~0.4 - 2.5 m/s
+
+    Yüksek akış: hızlı soğuma -> yanma riski düşer, sertleşme/HIC riski artar.
+    Düşük/sıfır akış: yavaş soğuma -> burn-through (yanma) riski artar.
+
+    NOT: Aralıklar repo mühendislik yorumudur; normatif onay için lisanslı
+    API RP 2201 / AWS D10.8 kopyası ile doğrulanmalıdır.
+    """
+    ftype = (fluid_type or "gas").strip().lower()
+    is_liquid = any(k in ftype for k in ("liquid", "oil", "sivi", "petrol", "sıvı"))
+    low, high = (0.4, 2.5) if is_liquid else (1.5, 15.0)
+
+    vel = max(0.0, flow_velocity_ms or 0.0)
+    if vel <= 0.0:
+        cooling = "Bilinmiyor"
+        burn_through = "Değerlendirilemedi"
+        hicc = "Değerlendirilemedi"
+        note = "Akış hızı girilmedi; heat sink etkisi sayısal olarak değerlendirilemedi."
+    elif vel < low:
+        cooling = "Yavaş (düşük heat sink)"
+        burn_through = "YÜKSEK"
+        hicc = "Düşük"
+        note = (f"Akış hızı {vel:.2f} m/s, önerilen alt sınırın ({low:.1f} m/s) altında. "
+                f"Soğuma yavaş; kaynak havuzu altında aşırı ısınma ve burn-through riski artar.")
+    elif vel <= high:
+        cooling = "Dengeli"
+        burn_through = "Düşük"
+        hicc = "Düşük"
+        note = (f"Akış hızı {vel:.2f} m/s, önerilen güvenli aralıkta ({low:.1f}-{high:.1f} m/s). "
+                f"Dengeli soğuma; yanma ve HIC riski kabul edilebilir.")
+    else:
+        cooling = "Hızlı (yüksek heat sink)"
+        burn_through = "Düşük"
+        hicc = "YÜKSEK"
+        note = (f"Akış hızı {vel:.2f} m/s, önerilen üst sınırın ({high:.1f} m/s) üzerinde. "
+                f"Hızlı soğuma; sertleşme ve hidrojen kaynaklı soğuk çatlama (HICC) riski artar, "
+                f"ön ısıtma ile dengelenmelidir.")
+
+    return {
+        "fluid_type": ftype,
+        "is_liquid": is_liquid,
+        "flow_velocity_ms": vel,
+        "recommended_range": f"{low:.1f}-{high:.1f} m/s",
+        "cooling": cooling,
+        "burn_through_risk": burn_through,
+        "hicc_risk": hicc,
+        "pass": low <= vel <= high if vel > 0.0 else None,
+        "message": note,
+    }
+
+
+def evaluate_split_tee_design(
+    split_type: str = "Type B",
+    sleeve_wt_mm: float = 0.0,
+    t_req_h_mm: float = 0.0,
+    branch_od_mm: float = 0.0,
+    run_od_mm: float = 0.0,
+    d_opening_mm: float = 0.0,
+) -> Dict[str, Any]:
+    """
+    Full Encirclement Split Tee tasarım kontrolü.
+
+    Type B (pressure-containing): manşon (sleeve) basıncı taşır; manşon et
+    kalınlığı ana hat gerekli kalınlığından az olmamalıdır (T_sleeve >= t_req_h).
+
+    Type A (reinforcing): manşon takviye elemanıdır; ana hat birincil basınç
+    taşıyıcıdır, T_sleeve >= t_req_h önerilir.
+
+    ASME B31.8 Para 831.4.2(h) ve ASME PCC-2 kapsamındaki mühendislik yorumudur;
+    normatif onay için lisanslı standart kopyaları ile doğrulanmalıdır.
+    """
+    stype = "Type B" if "B" in (split_type or "B").upper() else "Type A"
+    t_s = max(0.0, sleeve_wt_mm or 0.0)
+    t_req = max(0.0, t_req_h_mm or 0.0)
+    branch_od = max(0.0, branch_od_mm or 0.0)
+    run_od = max(0.0, run_od_mm or 0.0)
+    d_open = max(0.0, d_opening_mm or 0.0)
+
+    thickness_ok = t_s >= t_req
+    pressure_containing = stype == "Type B"
+
+    # Minimum manşon boyu (repo heuristic): deliğin her iki yanında branşman
+    # çapının yarısından az olmayacak şekilde uzanmalıdır.
+    if d_open > 0.0:
+        min_length = d_open + 2.0 * max(75.0, branch_od / 2.0)
+    else:
+        min_length = max(200.0, 2.0 * branch_od)
+
+    adequacy = thickness_ok
+    if not thickness_ok:
+        status = "YETERSİZ - T_sleeve >= t_req_h sağlanmalı"
+        msg = (f"Manşon et kalınlığı {t_s:.2f} mm < gerekli {t_req:.2f} mm. "
+               f"{'Type B (basınç taşıyan)' if pressure_containing else 'Type A (takviye)'} "
+               f"için manşon kalınlığı gerekli kalınlığa yükseltilmelidir.")
+    else:
+        status = "UYGUN"
+        msg = (f"Manşon et kalınlığı {t_s:.2f} mm >= gerekli {t_req:.2f} mm. "
+               f"{'Type B (basınç taşıyan) manşon' if pressure_containing else 'Type A takviye manşonu'} "
+               f"kalınlık açısından yeterlidir.")
+
+    return {
+        "split_type": stype,
+        "T_sleeve_mm": round(t_s, 3),
+        "t_req_h_mm": round(t_req, 3),
+        "pressure_containing": pressure_containing,
+        "thickness_pass": thickness_ok,
+        "min_sleeve_length_mm": round(min_length, 1),
+        "adequate": adequacy,
+        "status": status,
+        "recommendation": (
+            f"{msg} Önerilen minimum manşon boyu ≈ {min_length:.0f} mm "
+            f"(delik çapı {d_open:.0f} mm + her iki yanda takviye boyu). "
+            f"Boyuna kaynak kök desteği (backing strip) ve boyun takviyesi ASME PCC-2 gereği değerlendirilmelidir."
+        ),
+    }
+
+
 def compare_scenarios(results: list) -> Dict[str, Any]:
     """
     Faz 3 What-If: Birden fazla analiz sonucunu yan yana karsilastiran saf fonksiyon.

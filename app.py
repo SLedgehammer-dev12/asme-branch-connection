@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer - Streamlit Arayüzü V3.4 (2D/3D CAD & Multiplatform Release)
+ASME B31.8 Pipeline Designer - Streamlit Arayüzü V3.5 (2D/3D CAD & Multiplatform Release)
 """
 
 import json
@@ -37,12 +37,12 @@ if "logbook" not in st.session_state:
 # --- UI SETUP ---
 icon_file = "assets/app_icon.png"
 st.set_page_config(
-    page_title="ASME B31.8 Pipeline Designer V3.4",
+    page_title="ASME B31.8 Pipeline Designer V3.5",
     layout="wide",
     page_icon=icon_file if __import__("os").path.exists(icon_file) else "⚡",
 )
 
-st.title("⚡ ASME B31.8 Pipeline Designer V3.4")
+st.title("⚡ ASME B31.8 Pipeline Designer V3.5")
 st.markdown("**Standart:** ASME B31.8-2020 | **Metod:** Area Replacement ve Smart Fitting Selection")
 
 run_data = st.session_state.run_data
@@ -54,7 +54,8 @@ with st.sidebar:
     (
         design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
-        facility_type, seam_type, location_class
+        facility_type, seam_type, location_class,
+        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, split_tee_type
     ) = render_sidebar_inputs()
 
     st.markdown("---")
@@ -78,6 +79,10 @@ with st.sidebar:
             "facility_type": facility_type,
             "seam_type": seam_type,
             "location_class": location_class,
+            "hot_tap_flow_ms": hot_tap_flow_ms,
+            "hot_tap_fluid": hot_tap_fluid,
+            "hot_tap_d_pen_mm": hot_tap_d_pen_mm,
+            "split_tee_type": split_tee_type,
             "run_data": run_data,
             "branch_data": branch_data
         }
@@ -118,6 +123,10 @@ with st.sidebar:
         facility_type = data.get("facility_type", facility_type)
         seam_type = data.get("seam_type", seam_type)
         location_class = data.get("location_class", location_class)
+        hot_tap_flow_ms = data.get("hot_tap_flow_ms", hot_tap_flow_ms)
+        hot_tap_fluid = data.get("hot_tap_fluid", hot_tap_fluid)
+        hot_tap_d_pen_mm = data.get("hot_tap_d_pen_mm", hot_tap_d_pen_mm)
+        split_tee_type = data.get("split_tee_type", split_tee_type)
         run_data = data.get("run_data", run_data)
         branch_data = data.get("branch_data", branch_data)
         st.info("Yüklenen girdiler uygulandı.")
@@ -270,7 +279,9 @@ def run_application():
             op_type=op_type, design_temp=design_temp, run_data=run_data, branch_data=branch_data,
             mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
             branch_angle_deg=branch_angle_deg, location_class=location_class,
-            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service,
+            hot_tap_flow_ms=hot_tap_flow_ms, hot_tap_fluid=hot_tap_fluid,
+            hot_tap_d_pen_mm=hot_tap_d_pen_mm, split_tee_type=split_tee_type
         )
         st.session_state.dm_results = dm_res
 
@@ -292,7 +303,9 @@ def run_application():
             run_data=run_data, branch_data=branch_data,
             mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
             branch_angle_deg=branch_angle_deg, location_class=location_class,
-            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service,
+            hot_tap_flow_ms=hot_tap_flow_ms, hot_tap_fluid=hot_tap_fluid,
+            hot_tap_d_pen_mm=hot_tap_d_pen_mm, split_tee_type=split_tee_type
         )
 
     # Step 3: Completion/Review

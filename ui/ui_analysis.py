@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.4
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.5
 """
 
 import streamlit as st
@@ -103,7 +103,6 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         "🛡️ Kaynak & Saha Testi Güvenliği",
         "🔬 Metalurji & Sour Service",
     ])
-
     pad_p = eng_kwargs.get("pad_props", {})
     weld_l = eng_kwargs.get("weld_legs", {})
 
@@ -118,7 +117,7 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     with tab_3d:
         st.markdown("##### 3D CAD İnteraktif Boru & Branşman Modeli")
         try:
-            fig_3d = create_3d_cad_model_figure(run_data, branch_data, ar, pad_p, branch_angle_deg=branch_angle_deg)
+            fig_3d = create_3d_cad_model_figure(run_data, branch_data, ar, pad_p, branch_angle_deg=branch_angle_deg, fitting_type=selected_fitting)
             st.plotly_chart(fig_3d, use_container_width=True)
         except Exception as e:
             st.warning(f"3D CAD modeli çizilirken hata oluştu: {e}")
@@ -162,6 +161,51 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             )
         if ar.get("weep_hole_spec"):
             st.caption(f"ℹ️ **Vent / Weep Hole Standardı:** {ar['weep_hole_spec']}")
+
+        # Hot Tap güvenlik & basınç analizi (yalnızca Hot Tap operasyonunda)
+        if op_type == "Hot Tap":
+            ht = ar.get("hot_tap") or {}
+            flow = ht.get("flow_assessment") or {}
+            st.markdown("---")
+            st.markdown("##### 🔥 Hot Tap Güvenlik & Basınç Analizi (API RP 2201 / Battelle)")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("Güvenli Maks. Basınç (P_safe)", f"{ht.get('P_safe_MPa','-')} MPa",
+                          help="P_safe = 2 × S_allow × (t_net − d_pen) / D")
+                st.metric("Etkili Kalan Kalınlık (t_eff)", f"{ht.get('t_effective_mm','-')} mm")
+                st.metric("Basınç Derating Oranı", f"{ht.get('derating_ratio','-')}x")
+                if not ht.get("pass", False):
+                    st.error("❌ İşletme basıncı P_safe'i aşıyor — canlı hat kaynağı öncesi basınç düşürme GEREKLİ.")
+                else:
+                    st.success("✅ İşletme basıncı, kaynak sırasındaki güvenli basınç altında.")
+            with c2:
+                st.metric("Ön Isıtma (Min)", f"≥ {ht.get('preheat_min_c','-')} °C")
+                st.metric("Azami Isı Girdisi", f"≤ {ht.get('max_heat_input_kj_mm','-')} kJ/mm")
+                st.metric("Akış Hızı (Heat Sink)", f"{ht.get('flow_velocity_ms','-')} m/s")
+                st.caption(f"Önerilen aralık: {flow.get('recommended_range','-')}")
+            st.info(
+                f"**Akış / Soğuma Değerlendirmesi:** {flow.get('cooling','-')} — "
+                f"Burn-through riski: **{flow.get('burn_through_risk','-')}**, "
+                f"HICC riski: **{flow.get('hicc_risk','-')}**."
+            )
+            if ht.get("cutter_max_od_mm") is not None:
+                st.caption(f"🛠️ Cutter: maks. cutter OD ≤ {ht['cutter_max_od_mm']:.1f} mm (branşman ID)")
+
+        # Split Tee / Sleeve mekanik doğrulaması
+        st_res = ar.get("split_tee")
+        if st_res:
+            st.markdown("---")
+            st.markdown(f"##### 🧩 Split Tee / Sleeve Doğrulaması ({st_res.get('split_type','-')})")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("T_sleeve", f"{st_res.get('T_sleeve_mm','-')} mm")
+                st.metric("t_req_h (gerekli)", f"{st_res.get('t_req_h_mm','-')} mm")
+            with c2:
+                st.metric("Min. Manşon Boyu", f"≈ {st_res.get('min_sleeve_length_mm','-')} mm")
+            if st_res.get("thickness_pass"):
+                st.success(f"✅ {st_res.get('status','UYGUN')} — T_sleeve ≥ t_req_h sağlanıyor.")
+            else:
+                st.error(f"❌ {st_res.get('status','YETERSİZ')} — manşon kalınlığı yükseltilmelidir.")
 
     with tab_metal:
         st.markdown("##### NACE MR0175 / ISO 15156 Ekşi Gaz ve Karbon Eşdeğeri")
@@ -264,6 +308,10 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             location_class=eng_kwargs.get("location_class"),
             facility_type=eng_kwargs.get("facility_type"),
             seam_type=eng_kwargs.get("seam_type"),
+            hot_tap_flow_ms=eng_kwargs.get("hot_tap_flow_ms"),
+            hot_tap_fluid=eng_kwargs.get("hot_tap_fluid", "gas"),
+            hot_tap_d_pen_mm=eng_kwargs.get("hot_tap_d_pen_mm", 2.0),
+            split_tee_type=eng_kwargs.get("split_tee_type", "Type B"),
         )
         html_report = eng.generate_html_report(
             run_data, branch_data, ar,
@@ -412,10 +460,24 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         pad_props["T_pad"] = pad_t
         pad_props["D_pad"] = pad_d
 
+    # Split Tee tipi (Type A/B) - yalnızca split tee / sleeve için
+    split_tee_type = extra_kwargs.get("split_tee_type", "Type B")
+    if selected_fitting in ["SPLIT TEE", "FULL ENCIRCLEMENT SLEEVE"]:
+        split_tee_type = st.radio(
+            "Split Tee Tipi",
+            ["Type B", "Type A"],
+            index=0 if split_tee_type == "Type B" else 1,
+            format_func=lambda x: "Type B (basınç taşıyan manşon)" if x == "Type B" else "Type A (takviye manşonu)",
+            help="Type B: manşon basıncı taşır; T_sleeve ≥ t_req_h zorunlu. Type A: takviye elemanı.",
+        )
+        st.session_state["split_tee_type"] = split_tee_type
+
     st.markdown("#### Fitting / takviye malzemesi")
     f_std_c, f_grd_c, f_smys_c = st.columns(3)
 
-    mat_list = list(FITTING_MATERIALS_DB.keys())
+    # Split Tee / Sleeve için genişletilmiş malzeme listesi (API 5L, EN P/L, A516/A537)
+    material_choices = db.get_fitting_material_choices(selected_fitting)
+    mat_list = list(material_choices.keys())
     mat_list.append("Manuel/Diğer")
 
     preferred_map = FittingMaterials.get_compatible_material(
@@ -439,10 +501,10 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             help="Otomatik seçim dışı hesaplamalar için kullanılır.",
         )
     else:
-        f_grade_list = list(FITTING_MATERIALS_DB[f_std].keys())
+        f_grade_list = list(material_choices[f_std].keys())
         default_grd_index = f_grade_list.index(preferred_grade) if preferred_grade in f_grade_list else 0
         f_grd = f_grd_c.selectbox("Grade / sınıf", f_grade_list, index=default_grd_index, key="fs_grd")
-        default_smys = FITTING_MATERIALS_DB[f_std][f_grd]
+        default_smys = material_choices[f_std][f_grd]
         fitting_smys = f_smys_c.number_input(
             "Oto / manuel SMYS [MPa]",
             value=float(default_smys),
@@ -462,6 +524,10 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         "facility_type": extra_kwargs.get("facility_type"),
         "seam_type": extra_kwargs.get("seam_type"),
         "is_sour_service": extra_kwargs.get("is_sour_service", False),
+        "hot_tap_flow_ms": extra_kwargs.get("hot_tap_flow_ms"),
+        "hot_tap_fluid": extra_kwargs.get("hot_tap_fluid", "gas"),
+        "hot_tap_d_pen_mm": extra_kwargs.get("hot_tap_d_pen_mm", 2.0),
+        "split_tee_type": st.session_state.get("split_tee_type", extra_kwargs.get("split_tee_type", "Type B")),
     }
 
     if st.button("AŞAMA 2: Alan hesabını tamamla", type="primary", use_container_width=True):
@@ -484,6 +550,10 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             location_class=extra_kwargs.get("location_class"),
             facility_type=extra_kwargs.get("facility_type"),
             seam_type=extra_kwargs.get("seam_type"),
+            hot_tap_flow_ms=extra_kwargs.get("hot_tap_flow_ms"),
+            hot_tap_fluid=extra_kwargs.get("hot_tap_fluid", "gas"),
+            hot_tap_d_pen_mm=extra_kwargs.get("hot_tap_d_pen_mm", 2.0),
+            split_tee_type=st.session_state.get("split_tee_type", extra_kwargs.get("split_tee_type", "Type B")),
         )
         res = eng.analyze(run_data, branch_data, selected_fitting)
         st.session_state.analysis_results = res

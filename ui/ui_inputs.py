@@ -94,10 +94,47 @@ def render_sidebar_inputs():
 
     is_sour_service = st.checkbox("Ekşi Gaz Servisi (NACE MR0175 / Sour)", value=False, help="H2S içeren ortam için metalurji ve sertlik kontrolleri")
 
+    # Hot Tap: akış (heat sink), penetrasyon ve split tee tipi
+    hot_tap_flow_ms = None
+    hot_tap_fluid = "gas"
+    hot_tap_d_pen_mm = 2.0
+    split_tee_type = "Type B"
+    if op_type == "Hot Tap":
+        st.divider()
+        st.subheader("Hot Tap Güvenlik Parametreleri")
+        hc1, hc2 = st.columns(2)
+        hot_tap_fluid = hc1.selectbox(
+            "Akışkan tipi",
+            ["gas", "liquid"],
+            format_func=lambda x: "Gaz (Doğalgaz vb.)" if x == "gas" else "Sıvı (Ham Petrol / Rafine Ürün)",
+        )
+        hot_tap_flow_ms = hc2.number_input(
+            "Akış hızı (m/s) - heat sink",
+            value=5.0,
+            min_value=0.0,
+            step=0.5,
+            help="Canlı hat kaynağı sırasındaki akışkan hızı (opsiyonel; 0 = değerlendirilmez)",
+        )
+        st.caption("Gaz için önerilen ~1.5-15 m/s, sıvı için ~0.4-2.5 m/s.")
+        hot_tap_d_pen_mm = st.number_input(
+            "Elektrot penetrasyon derinliği d_pen (mm)",
+            value=2.0,
+            min_value=0.0,
+            max_value=8.0,
+            step=0.5,
+            help="API RP 2201 / Battelle: tipik ~1.5-2.5 mm",
+        )
+        split_tee_type = st.radio(
+            "Split Tee Tipi",
+            ["Type B", "Type A"],
+            format_func=lambda x: "Type B (basınç taşıyan manşon)" if x == "Type B" else "Type A (takviye manşonu)",
+        )
+
     return (
         design_temp, op_type, P_val, P_unit, F, 1.0, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
-        facility_type, "Seamless (SMLS)", location_class
+        facility_type, "Seamless (SMLS)", location_class,
+        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, split_tee_type
     )
 
 

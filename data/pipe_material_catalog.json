@@ -546,5 +546,254 @@
       "SpecLabel": "ASTM A790 S32205",
       "Form": null
     }
+  },
+  "EN 10208-2": {
+    "L245NB": {
+      "SMYS_MPa": 245,
+      "Desc": "Line pipe steel",
+      "Mech": {
+        "Yield": "245 MPa",
+        "Tensile": "415-560 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.90-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L245NB",
+      "Form": null
+    },
+    "L290NB": {
+      "SMYS_MPa": 290,
+      "Desc": "Line pipe steel",
+      "Mech": {
+        "Yield": "290 MPa",
+        "Tensile": "415-560 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L290NB",
+      "Form": null
+    },
+    "L360NB": {
+      "SMYS_MPa": 360,
+      "Desc": "Line pipe steel",
+      "Mech": {
+        "Yield": "360 MPa",
+        "Tensile": "460-600 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10208-2 L360NB",
+      "Form": null
+    },
+    "L415MB": {
+      "SMYS_MPa": 415,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "415 MPa",
+        "Tensile": "520-680 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "EN 10208-2 L415MB",
+      "Form": null
+    },
+    "L450MB": {
+      "SMYS_MPa": 450,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "450 MPa",
+        "Tensile": "535-695 MPa",
+        "Elong": "19%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "EN 10208-2 L450MB",
+      "Form": null
+    },
+    "L485MB": {
+      "SMYS_MPa": 485,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "485 MPa",
+        "Tensile": "570-730 MPa",
+        "Elong": "18%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L485MB",
+      "Form": null
+    }
+  },
+  "EN 10216-1": {
+    "P235TR1": {
+      "SMYS_MPa": 235,
+      "Desc": "Seamless tube for pressure (non-alloy)",
+      "Mech": {
+        "Yield": "235 MPa",
+        "Tensile": "360-500 MPa",
+        "Elong": "24%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "1.20 max",
+        "P": "0.025 max",
+        "S": "0.020 max",
+        "Si": "0.35 max"
+      },
+      "SpecLabel": "EN 10216-1 P235TR1",
+      "Form": null
+    },
+    "P235TR2": {
+      "SMYS_MPa": 235,
+      "Desc": "Seamless tube for pressure",
+      "Mech": {
+        "Yield": "235 MPa",
+        "Tensile": "360-500 MPa",
+        "Elong": "24%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "1.20 max",
+        "P": "0.025 max",
+        "S": "0.020 max",
+        "Si": "0.35 max"
+      },
+      "SpecLabel": "EN 10216-1 P235TR2",
+      "Form": null
+    },
+    "P265TR1": {
+      "SMYS_MPa": 265,
+      "Desc": "Seamless tube for pressure",
+      "Mech": {
+        "Yield": "265 MPa",
+        "Tensile": "410-530 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.40 max",
+        "P": "0.025 max",
+        "S": "0.020 max",
+        "Si": "0.40 max"
+      },
+      "SpecLabel": "EN 10216-1 P265TR1",
+      "Form": null
+    },
+    "P265TR2": {
+      "SMYS_MPa": 265,
+      "Desc": "Seamless tube for pressure",
+      "Mech": {
+        "Yield": "265 MPa",
+        "Tensile": "410-530 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.40 max",
+        "P": "0.025 max",
+        "S": "0.020 max",
+        "Si": "0.40 max"
+      },
+      "SpecLabel": "EN 10216-1 P265TR2",
+      "Form": null
+    }
+  },
+  "EN 10216-2": {
+    "P235GH": {
+      "SMYS_MPa": 235,
+      "Desc": "Seamless tube for high temperature",
+      "Mech": {
+        "Yield": "235 MPa",
+        "Tensile": "360-500 MPa",
+        "Elong": "24%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "0.60-1.20",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.35 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10216-2 P235GH",
+      "Form": null
+    },
+    "P265GH": {
+      "SMYS_MPa": 265,
+      "Desc": "Seamless tube for high temperature",
+      "Mech": {
+        "Yield": "265 MPa",
+        "Tensile": "410-530 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.80-1.40",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.40 max",
+        "CE": "0.44 max"
+      },
+      "SpecLabel": "EN 10216-2 P265GH",
+      "Form": null
+    },
+    "P355GH": {
+      "SMYS_MPa": 355,
+      "Desc": "Seamless tube for high temperature",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "510-650 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.10-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.60 max",
+        "CE": "0.48 max"
+      },
+      "SpecLabel": "EN 10216-2 P355GH",
+      "Form": null
+    }
   }
 }

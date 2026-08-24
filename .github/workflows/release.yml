@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.4.0)"
+        description: "Release version tag (e.g. v3.5.0)"
         required: true
-        default: "v3.4.0"
+        default: "v3.5.0"
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
-          if (-not $ver) { $ver = 'v3.4.0' }
+          if (-not $ver) { $ver = 'v3.5.0' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -116,7 +116,7 @@ jobs:
             VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.4.0"
+            VER="v3.5.0"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
@@ -169,7 +169,7 @@ jobs:
             TAG="${{ inputs.version }}"
           fi
           if [[ -z "$TAG" ]]; then
-            TAG="v3.4.0"
+            TAG="v3.5.0"
           fi
 
           cat << 'EOF' > release_notes.md
@@ -180,6 +180,20 @@ jobs:
           ### 📦 İndirilebilir Paketler (Downloads):
           * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
           * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+
+          ### ✨ V3.5 Yenilikleri ve Geliştirmeler:
+          * **Hot Tap P_safe Derating (API RP 2201 / Battelle)**: Canlı hat kaynağı sırasında güvenli maksimum işletme basıncı `P_safe = 2×S×F×E×T×(t_net−d_pen)/D`; elektrot penetrasyonu (`d_pen`), efektif kalan et kalınlığı (`t_eff`), basınç düşürme (derating) oranı ve PASS/FAIL kontrolü.
+          * **Hot Tap Akış (Heat Sink) Termal Analizi**: Akış hızı ve akışkan tipine göre soğuma hızı, burn-through ve HIC (HICC) risk sınıflandırması (Gaz ~1.5–15 m/s, Sıvı ~0.4–2.5 m/s).
+          * **Split Tee / Sleeve Mekanik Doğrulaması**: Type A vs Type B ayrımı, `T_sleeve ≥ t_req_h` kontrolü ve minimum manşon boyu (ASME B31.8 Para 831.4.2(h) & ASME PCC-2).
+          * **Genişletilmiş Malzeme Kataloğu (Split Tee / Sleeve / Boru)**:
+            * **EN 10028-2**: P235GH, P265GH, P295GH, P355GH (yüksek sıcaklık sacı)
+            * **EN 10028-3**: P275NL1/NL2, P355N/NH/NL1/NL2, P460N/NH/NL1/NL2 (ince taneli sac)
+            * **EN 10028-6**: P500Q, P690Q/QL1 (su verilmiş temperlenmiş)
+            * **EN 10208-2**: L245NB – L555MB (hat borusu) & **EN 10216-1/2** (dikişsiz boru)
+            * **ASTM A516** Gr 60/65/70 & **ASTM A537** Cl 1/2 (basınçlı kap sacı)
+          * **Fitting'e Göre Özelleştirilmiş 3D CAD**: Seçilen fitting tipine göre 3D modelde olet gövdesi (WELDOLET/OLET), fabrika tee boyun yakası (WELDING TEE), full encirclement manşon + boyuna kaynak (SPLIT TEE/SLEEVE) görüntülenir.
+          * **Raporlama**: HTML + PDF hesap föyüne Hot Tap güvenlik & basınç analizi ve Split Tee doğrulama bölümleri eklendi.
+          * **Kapsam**: 305 otomatik test, %94 kod kapsamı.
 
           ### ✨ V3.4 Yenilikleri ve Geliştirmeler:
           * **Modüler Mimari (Faz 2)**: `engine.py` (1996 satıra indirildi) — saf hesap motoru `engine_math.py`'ye taşındı, geriye uyumlu re-export. Tip güvenli **dataclass kontratları** (`engine_contracts.py`: `PipeSpecification`, `DesignFactors`, `DesignInput`).

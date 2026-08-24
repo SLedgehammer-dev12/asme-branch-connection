@@ -313,3 +313,40 @@ def get_fitting_approximate_weight(nps, fitting_type="tee"):
         return None
     return entry.get(fitting_key, None)
 
+
+# --- SPLIT TEE / FULL ENCIRCLEMENT SLEEVE GENİŞLETİLMİŞ MALZEME LİSTESİ ---
+# Sahada/fabrikada split tee ve sleeve gövdesi hat borusundan (API 5L) veya
+# basınçlı kap / hat sacından (EN 10028, EN 10208, ASTM A516/A537) imal edilir.
+# Bu yüzden fitting malzeme listesi bu tipler için standart dövme fittinglerin
+# yanı sıra boru ve plaka kalitelerini de içermelidir.
+# Not: Değerler repo mühendislik kataloğudur; normatif onay için lisanslı
+# EN 10028 / EN 10208 / ASTM A516 / A537 ve API 5L kopyaları ile doğrulanmalıdır.
+
+_SPLIT_TEE_EXTRA_STANDARDS = [
+    "API 5L PSL 1",
+    "API 5L PSL 2",
+    "EN 10028-2",
+    "EN 10028-3",
+    "EN 10028-6",
+    "EN 10208-2",
+    "ASTM A516",
+    "ASTM A537",
+]
+
+
+def get_fitting_material_choices(fitting_type):
+    """Bağlantı tipine göre malzeme standardı -> {grade: SMYS} sözlüğü döndürür.
+
+    SPLIT TEE / FULL ENCIRCLEMENT SLEEVE için standart dövme fittinglerin yanına
+    hat borusu (API 5L) ve basınçlı kap / hat sacı (EN 10028, EN 10208, A516, A537)
+    kaliteleri eklenir. Diğer tiplerde mevcut ASTM/MSS listesi döndürülür.
+    """
+    choices = dict(FITTING_MATERIALS_BY_STANDARD)
+    if fitting_type and ("SPLIT TEE" in fitting_type.upper() or "SLEEVE" in fitting_type.upper()):
+        for std in _SPLIT_TEE_EXTRA_STANDARDS:
+            if std in PIPE_MATERIALS_BY_STANDARD:
+                choices[std] = dict(PIPE_MATERIALS_BY_STANDARD[std])
+            elif std in FITTING_MATERIALS_BY_STANDARD:
+                choices[std] = dict(FITTING_MATERIALS_BY_STANDARD[std])
+    return choices
+

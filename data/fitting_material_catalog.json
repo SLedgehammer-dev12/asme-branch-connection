@@ -601,5 +601,584 @@
       "SpecLabel": "MSS SP-97",
       "Form": "Forged"
     }
+  },
+  "EN 10028-2": {
+    "P235GH": {
+      "SMYS_MPa": 235,
+      "Desc": "High-temperature pressure plate (R1)",
+      "Mech": {
+        "Yield": "235 MPa",
+        "Tensile": "360-500 MPa",
+        "Elong": "24%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "0.60-1.20",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.35 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10028-2 P235GH",
+      "Form": "Plate"
+    },
+    "P265GH": {
+      "SMYS_MPa": 265,
+      "Desc": "High-temperature pressure plate (R2)",
+      "Mech": {
+        "Yield": "265 MPa",
+        "Tensile": "410-530 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.80-1.40",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.40 max",
+        "CE": "0.44 max"
+      },
+      "SpecLabel": "EN 10028-2 P265GH",
+      "Form": "Plate"
+    },
+    "P295GH": {
+      "SMYS_MPa": 295,
+      "Desc": "High-temperature pressure plate (R3)",
+      "Mech": {
+        "Yield": "295 MPa",
+        "Tensile": "460-580 MPa",
+        "Elong": "21%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.90-1.50",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.40 max",
+        "CE": "0.46 max"
+      },
+      "SpecLabel": "EN 10028-2 P295GH",
+      "Form": "Plate"
+    },
+    "P355GH": {
+      "SMYS_MPa": 355,
+      "Desc": "High-temperature pressure plate (R4)",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "510-650 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.22 max",
+        "Mn": "1.10-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.60 max",
+        "CE": "0.48 max"
+      },
+      "SpecLabel": "EN 10028-2 P355GH",
+      "Form": "Plate"
+    }
+  },
+  "EN 10028-3": {
+    "P275NL1": {
+      "SMYS_MPa": 275,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "275 MPa",
+        "Tensile": "390-510 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "0.90-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.40 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "EN 10028-3 P275NL1",
+      "Form": "Plate"
+    },
+    "P275NL2": {
+      "SMYS_MPa": 275,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "275 MPa",
+        "Tensile": "390-510 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.16 max",
+        "Mn": "0.90-1.70",
+        "P": "0.020 max",
+        "S": "0.010 max",
+        "Si": "0.40 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "EN 10028-3 P275NL2",
+      "Form": "Plate"
+    },
+    "P355N": {
+      "SMYS_MPa": 355,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "490-630 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.90-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.50 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10028-3 P355N",
+      "Form": "Plate"
+    },
+    "P355NH": {
+      "SMYS_MPa": 355,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "490-630 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.90-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.50 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10028-3 P355NH",
+      "Form": "Plate"
+    },
+    "P355NL1": {
+      "SMYS_MPa": 355,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "490-630 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.18 max",
+        "Mn": "0.90-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.50 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10028-3 P355NL1",
+      "Form": "Plate"
+    },
+    "P355NL2": {
+      "SMYS_MPa": 355,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "355 MPa",
+        "Tensile": "490-630 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.18 max",
+        "Mn": "0.90-1.70",
+        "P": "0.020 max",
+        "S": "0.010 max",
+        "Si": "0.50 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10028-3 P355NL2",
+      "Form": "Plate"
+    },
+    "P460N": {
+      "SMYS_MPa": 460,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "460 MPa",
+        "Tensile": "540-720 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.60 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "EN 10028-3 P460N",
+      "Form": "Plate"
+    },
+    "P460NH": {
+      "SMYS_MPa": 460,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "460 MPa",
+        "Tensile": "540-720 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.60 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "EN 10028-3 P460NH",
+      "Form": "Plate"
+    },
+    "P460NL1": {
+      "SMYS_MPa": 460,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "460 MPa",
+        "Tensile": "540-720 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.70",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.60 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "EN 10028-3 P460NL1",
+      "Form": "Plate"
+    },
+    "P460NL2": {
+      "SMYS_MPa": 460,
+      "Desc": "Normalized fine-grain pressure plate",
+      "Mech": {
+        "Yield": "460 MPa",
+        "Tensile": "540-720 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.70",
+        "P": "0.020 max",
+        "S": "0.010 max",
+        "Si": "0.60 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "EN 10028-3 P460NL2",
+      "Form": "Plate"
+    }
+  },
+  "EN 10028-6": {
+    "P500Q": {
+      "SMYS_MPa": 500,
+      "Desc": "Quenched & tempered high-strength plate",
+      "Mech": {
+        "Yield": "500 MPa",
+        "Tensile": "590-770 MPa",
+        "Elong": "19%"
+      },
+      "Chem": {
+        "C": "0.18 max",
+        "Mn": "1.70 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.80 max",
+        "CE": "0.46 max"
+      },
+      "SpecLabel": "EN 10028-6 P500Q",
+      "Form": "Plate"
+    },
+    "P690Q": {
+      "SMYS_MPa": 690,
+      "Desc": "Quenched & tempered high-strength plate",
+      "Mech": {
+        "Yield": "690 MPa",
+        "Tensile": "770-940 MPa",
+        "Elong": "14%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.70 max",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.80 max",
+        "CE": "0.55 max"
+      },
+      "SpecLabel": "EN 10028-6 P690Q",
+      "Form": "Plate"
+    },
+    "P690QL1": {
+      "SMYS_MPa": 690,
+      "Desc": "Quenched & tempered high-strength plate",
+      "Mech": {
+        "Yield": "690 MPa",
+        "Tensile": "770-940 MPa",
+        "Elong": "14%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.70 max",
+        "P": "0.020 max",
+        "S": "0.008 max",
+        "Si": "0.80 max",
+        "CE": "0.55 max"
+      },
+      "SpecLabel": "EN 10028-6 P690QL1",
+      "Form": "Plate"
+    }
+  },
+  "EN 10208-2": {
+    "L245NB": {
+      "SMYS_MPa": 245,
+      "Desc": "Line pipe steel (medium strength)",
+      "Mech": {
+        "Yield": "245 MPa",
+        "Tensile": "415-560 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "0.90-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L245NB",
+      "Form": "Pipe"
+    },
+    "L290NB": {
+      "SMYS_MPa": 290,
+      "Desc": "Line pipe steel (medium strength)",
+      "Mech": {
+        "Yield": "290 MPa",
+        "Tensile": "415-560 MPa",
+        "Elong": "23%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L290NB",
+      "Form": "Pipe"
+    },
+    "L360NB": {
+      "SMYS_MPa": 360,
+      "Desc": "Line pipe steel",
+      "Mech": {
+        "Yield": "360 MPa",
+        "Tensile": "460-600 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.030 max",
+        "S": "0.025 max",
+        "Si": "0.45 max",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "EN 10208-2 L360NB",
+      "Form": "Pipe"
+    },
+    "L360MB": {
+      "SMYS_MPa": 360,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "360 MPa",
+        "Tensile": "460-600 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "EN 10208-2 L360MB",
+      "Form": "Pipe"
+    },
+    "L415MB": {
+      "SMYS_MPa": 415,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "415 MPa",
+        "Tensile": "520-680 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.40 max"
+      },
+      "SpecLabel": "EN 10208-2 L415MB",
+      "Form": "Pipe"
+    },
+    "L450MB": {
+      "SMYS_MPa": 450,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "450 MPa",
+        "Tensile": "535-695 MPa",
+        "Elong": "19%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.41 max"
+      },
+      "SpecLabel": "EN 10208-2 L450MB",
+      "Form": "Pipe"
+    },
+    "L485MB": {
+      "SMYS_MPa": 485,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "485 MPa",
+        "Tensile": "570-730 MPa",
+        "Elong": "18%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.42 max"
+      },
+      "SpecLabel": "EN 10208-2 L485MB",
+      "Form": "Pipe"
+    },
+    "L555MB": {
+      "SMYS_MPa": 555,
+      "Desc": "Line pipe steel (TMCP)",
+      "Mech": {
+        "Yield": "555 MPa",
+        "Tensile": "640-820 MPa",
+        "Elong": "16%"
+      },
+      "Chem": {
+        "C": "0.20 max",
+        "Mn": "1.00-1.60",
+        "P": "0.025 max",
+        "S": "0.015 max",
+        "Si": "0.45 max",
+        "CE": "0.45 max"
+      },
+      "SpecLabel": "EN 10208-2 L555MB",
+      "Form": "Pipe"
+    }
+  },
+  "ASTM A516": {
+    "Grade 60": {
+      "SMYS_MPa": 220,
+      "Desc": "Pressure vessel carbon steel plate (Gr 60)",
+      "Mech": {
+        "Yield": "220 MPa (32 ksi)",
+        "Tensile": "415-550 MPa",
+        "Elong": "21%"
+      },
+      "Chem": {
+        "C": "0.21 max",
+        "Mn": "0.60-1.20",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.15-0.40"
+      },
+      "SpecLabel": "ASTM A516 Gr 60",
+      "Form": "Plate"
+    },
+    "Grade 65": {
+      "SMYS_MPa": 240,
+      "Desc": "Pressure vessel carbon steel plate (Gr 65)",
+      "Mech": {
+        "Yield": "240 MPa (35 ksi)",
+        "Tensile": "450-585 MPa",
+        "Elong": "20%"
+      },
+      "Chem": {
+        "C": "0.26 max",
+        "Mn": "0.85-1.20",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.15-0.40"
+      },
+      "SpecLabel": "ASTM A516 Gr 65",
+      "Form": "Plate"
+    },
+    "Grade 70": {
+      "SMYS_MPa": 260,
+      "Desc": "Pressure vessel carbon steel plate (Gr 70)",
+      "Mech": {
+        "Yield": "260 MPa (38 ksi)",
+        "Tensile": "485-620 MPa",
+        "Elong": "17%"
+      },
+      "Chem": {
+        "C": "0.28 max",
+        "Mn": "0.85-1.20",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.15-0.40"
+      },
+      "SpecLabel": "ASTM A516 Gr 70",
+      "Form": "Plate"
+    }
+  },
+  "ASTM A537": {
+    "Class 1": {
+      "SMYS_MPa": 345,
+      "Desc": "Heat-treated pressure vessel plate",
+      "Mech": {
+        "Yield": "345 MPa (50 ksi)",
+        "Tensile": "485-620 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "0.70-1.60",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.15-0.50",
+        "CE": "0.43 max"
+      },
+      "SpecLabel": "ASTM A537 Class 1",
+      "Form": "Plate"
+    },
+    "Class 2": {
+      "SMYS_MPa": 415,
+      "Desc": "Heat-treated pressure vessel plate",
+      "Mech": {
+        "Yield": "415 MPa (60 ksi)",
+        "Tensile": "550-690 MPa",
+        "Elong": "22%"
+      },
+      "Chem": {
+        "C": "0.24 max",
+        "Mn": "0.70-1.60",
+        "P": "0.035 max",
+        "S": "0.035 max",
+        "Si": "0.15-0.50",
+        "CE": "0.46 max"
+      },
+      "SpecLabel": "ASTM A537 Class 2",
+      "Form": "Plate"
+    }
   }
 }
