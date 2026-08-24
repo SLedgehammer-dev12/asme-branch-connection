@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer - Streamlit Arayüzü V3.5.1 (2D/3D CAD & Multiplatform Release)
+ASME B31.8 Pipeline Designer - Streamlit Arayüzü V3.6.0 (2D/3D CAD & Multiplatform Release)
 """
 
 import json
@@ -37,12 +37,12 @@ if "logbook" not in st.session_state:
 # --- UI SETUP ---
 icon_file = "assets/app_icon.png"
 st.set_page_config(
-    page_title="ASME B31.8 Pipeline Designer V3.5.1",
+    page_title="ASME B31.8 Pipeline Designer V3.6.0",
     layout="wide",
     page_icon=icon_file if __import__("os").path.exists(icon_file) else "⚡",
 )
 
-st.title("⚡ ASME B31.8 Pipeline Designer V3.5.1")
+st.title("⚡ ASME B31.8 Pipeline Designer V3.6.0")
 st.markdown("**Standart:** ASME B31.8-2020 | **Metod:** Area Replacement ve Smart Fitting Selection")
 
 run_data = st.session_state.run_data

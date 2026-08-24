@@ -20,7 +20,7 @@ class TestFittingMaterials:
         """Test material selection for low temperature service."""
         result = FittingMaterials.get_compatible_material("ASTM A333", "6", -30.0)
         assert result["ButtWeld"] == "ASTM A420 WPL6"
-        assert result["Forged"] == "ASTM A350 LF2"
+        assert result["Forged"] == "ASTM A350 LF2 Class 1"
         assert "Low-temperature service" in result["Note"]
 
     def test_get_compatible_material_high_strength(self):

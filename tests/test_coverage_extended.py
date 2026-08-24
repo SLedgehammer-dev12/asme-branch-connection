@@ -10,10 +10,12 @@ from engine import (
     evaluate_design_factor,
     calc_effective_wall_thickness,
     evaluate_hydrotest_pressure,
+    get_hydrotest_factor,
     InputValidator,
     PressureCalculator,
     PipelineExpertEngine,
     DecisionMatrixEvaluator,
+    compare_pipe_fitting_materials,
 )
 from engine_math import (
     calculate_carbon_equivalent,
@@ -284,6 +286,66 @@ class TestDecisionMatrixTraceBranches:
         d = eng.get_fitting_details("WELDOLET", "24", "ASTM A420 WPL6", "10", "ASTM A333 Grade 6")
         assert any("Tokluk" in c for c in d["Comparison"])
 
+    def test_get_fitting_details_standard_only_matches(self):
+        # UI standard adını (ör. "ASTM A234") geçer -> tüm grade'ler eşleşmeli
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+        )
+        d = eng.get_fitting_details("WELDOLET", "24", "ASTM A234", "10", "API 5L PSL 1 Grade B")
+        assert len(d["Comparison"]) > 0
+        assert any("WPB" in k or "WPC" in k for k in d["MaterialProps"])
+
+    def test_compare_pipe_fitting_materials_specific_grade(self):
+        entries = compare_pipe_fitting_materials("API 5L PSL 1 Grade B", "ASTM A234", "WPB")
+        assert any("Mukavemet" in e for e in entries)
+
+    def test_compare_pipe_fitting_materials_duplex_ok(self):
+        entries = compare_pipe_fitting_materials("API 5L PSL 1 X52", "ASTM A815", "WPS32205")
+        # X52 (360) vs WPS32205 (450) -> fitting daha güçlü -> Mukavemet OK
+        assert any("Mukavemet OK" in e for e in entries)
+
+    def test_a815_catalog_present(self):
+        import fitting_database as db
+        assert "ASTM A815 WPS31803" in db.FITTING_PROPS_DB
+        assert db.FITTING_PROPS_DB["ASTM A815 WPS31803"]["SMYS"] == 450
+
+    def test_parse_fitting_spec_label_multiword_grade(self):
+        import fitting_database as db
+        assert db.parse_fitting_spec_label("ASTM A860 WPHY 52") == ("ASTM A860", "WPHY 52")
+        assert db.parse_fitting_spec_label("ASTM A350 LF2 Class 1") == ("ASTM A350", "LF2 Class 1")
+        assert db.parse_fitting_spec_label("ASTM A105") == ("ASTM A105", "A105")
+        assert db.parse_fitting_spec_label("ASTM A815 WPS32205") == ("ASTM A815", "WPS32205")
+
+    def test_exempt_fitting_zeroes_area_components(self):
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+        )
+        run = {"OD_mm": 609.6, "WT_mm": 14.3, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3, "SMYS_MPa": 245.0, "Standard": "ASTM A106", "Grade": "Grade B", "NPS": "10"}
+        res = eng.analyze(run, branch, selected_fitting_type="WELDING TEE (Factory)")
+        assert res["is_exempt"] is True
+        assert res["A1"] == 0.0
+        assert res["A2"] == 0.0
+        assert res["A_avail"] == 0.0
+
+    def test_hot_tap_uses_real_ce(self):
+        eng = PipelineExpertEngine(
+            P_val=20.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="Hot Tap", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+            hot_tap_flow_ms=5.0, hot_tap_fluid="gas",
+        )
+        run = {"OD_mm": 323.8, "WT_mm": 9.5, "SMYS_MPa": 245.0, "Standard": "API 5L PSL 1", "Grade": "Grade B", "NPS": "12"}
+        branch = {"OD_mm": 114.3, "WT_mm": 6.0, "SMYS_MPa": 245.0, "Standard": "API 5L PSL 1", "Grade": "Grade B", "NPS": "4"}
+        res = eng.analyze(run, branch)
+        # API 5L PSL 1 Grade B kimyasında CE=0.41 max -> hesaplanan CE 0.38'den farklı
+        assert res["hot_tap"]["ce_iiw"] > 0.0
+        assert res["hot_tap"]["ce_iiw"] != 0.38
+
     def test_select_smart_fitting_facade(self):
         eng = PipelineExpertEngine(
             P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
@@ -339,6 +401,50 @@ class TestHydrotestExtraBranches:
             P_design_MPa=8.0, test_factor=1.25, run_od_mm=609.6, wt_h_net_mm=8.9, smys_mpa=360.0
         )
         assert res["status"] == "WARNING"
+
+
+class TestHydrotestFactorAndFabricated:
+    def test_get_hydrotest_factor_by_class(self):
+        assert get_hydrotest_factor("Class 1, Division 1") == 1.10
+        assert get_hydrotest_factor("Class 2") == 1.25
+        assert get_hydrotest_factor("Class 3") == 1.40
+        assert get_hydrotest_factor("Class 4") == 1.40
+        assert get_hydrotest_factor(None) == 1.25
+
+    def test_analyze_hydrotest_uses_class_factor(self):
+        eng = PipelineExpertEngine(
+            P_val=7.0, P_unit="MPa", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+            location_class="Class 3 (Yoğun yerleşim / Ticari alan)",
+        )
+        run = {"OD_mm": 609.6, "WT_mm": 14.3, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3, "SMYS_MPa": 245.0, "Standard": "ASTM A106", "Grade": "Grade B", "NPS": "10"}
+        res = eng.analyze(run, branch)
+        assert res["hydrotest"]["test_factor"] == 1.40
+
+    def test_unreinforced_fabricated_large_ratio_warns(self):
+        eng = PipelineExpertEngine(
+            P_val=2.0, P_unit="MPa", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 0.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+        )
+        # d/D = 406/609.6 ~ 0.67 > 0.5, takviyesiz fabricated branch
+        run = {"OD_mm": 609.6, "WT_mm": 20.0, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 406.4, "WT_mm": 10.0, "SMYS_MPa": 245.0, "Standard": "ASTM A106", "Grade": "Grade B", "NPS": "16"}
+        res = eng.analyze(run, branch, selected_fitting_type="FABRICATED BRANCH (Takviyesiz)")
+        assert any("takviyesiz" in m["text"].lower() for m in res["messages"])
+
+    def test_area_method_notes_in_assumptions(self):
+        eng = PipelineExpertEngine(
+            P_val=7.0, P_unit="MPa", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 0.0},
+            pad_props={"has_pad": False}, design_temp=20.0, fitting_smys=240.0,
+        )
+        run = {"OD_mm": 609.6, "WT_mm": 14.3, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3, "SMYS_MPa": 245.0, "Standard": "ASTM A106", "Grade": "Grade B", "NPS": "10"}
+        res = eng.analyze(run, branch)
+        assert any("A1 ana hat fazlalığı" in a for a in res["Assumptions"])
 
 
 class TestValidatorEdgeBranches:

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.5.1)"
+        description: "Release version tag (e.g. v3.6.0)"
         required: true
-        default: "v3.5.1"
+        default: "v3.6.0"
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
-          if (-not $ver) { $ver = 'v3.5.1' }
+          if (-not $ver) { $ver = 'v3.6.0' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -116,7 +116,7 @@ jobs:
             VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.5.1"
+            VER="v3.6.0"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
@@ -169,7 +169,7 @@ jobs:
             TAG="${{ inputs.version }}"
           fi
           if [[ -z "$TAG" ]]; then
-            TAG="v3.5.1"
+            TAG="v3.6.0"
           fi
 
           cat << 'EOF' > release_notes.md
@@ -180,6 +180,27 @@ jobs:
           ### 📦 İndirilebilir Paketler (Downloads):
           * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
           * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+
+          ### ✨ V3.6.0 Yenilikleri — Profesyonel Düzey Düzeltmeler (P0–P2):
+
+          #### P0 — Kritik Malzeme ve Karşılaştırma Düzeltmeleri
+          * **Duplex A815 Desteği:** Duplex boru (S31803/S32205/A790) artık yanlışlıkla `ASTM A403 WP316L` yerine **`ASTM A815 WPS31803/WPS32205` (SMYS 450 MPa, doğru alaşım ailesi)** ile eşleşiyor. Katalog `ASTM A815` (WPS31803/WPS32205) ile genişletildi.
+          * **Malzeme Karşılaştırma Eşleşmesi:** `get_fitting_details`teki ters eşleşme (`key in mat_std` → `key == mat_std or key.startswith(mat_std + " ")`) düzeltildi; standard adıyla çağrıldığında da mukavemet/CE/tokluk analizi üretiliyor. Artık **fitting formunda** anında **“Boru vs Fitting Uyumluluk Analizi”** expander’ı görüntüleniyor.
+
+          #### P1 — Malzeme Parse ve Hesap Kesinliği
+          * **API 5L PSL 2 Grade B → WPHY 42:** Grade B boş-digits varsayımı “52” yerine muhafazakar **“42”** olarak düzeltildi.
+          * **Çok kelimeli grade parse’ı:** `parse_fitting_spec_label` artık katalog önekleriyle eşleşiyor (`WPHY 52`, `LF2 Class 1`, `WPS32205`); otomatik malzeme önerisi dropdown’a doğru yansıyor. Düşük sıcaklık için `ASTM A350 LF2 Class 1` (katalog anahtarıyla eşleşik).
+          * **A1/A2 Ayrı Zon Limitleri:** Branşman fazlalığı artık yalnızca **branşman zonu (2.5·t_b + T_s)** ile hesaplanıyor; `min(L1,L2)` karışımı kaldırıldı (lisanslı B31.8 kopyası ile doğrulayın).
+          * **Muafiyet Tutarlılığı:** Muaf fitting’te A1/A2/A3/A4/**A_avail/W_p** artık **0**’a çekiliyor; muafiyet mesajı tipe göre ayrıştırıldı (split tee/sleeve → T_sleeve doğrulaması, olet → MSS SP-97, diğer → burst-test).
+          * **Hot Tap Gerçek CE:** `0.38` sabiti yerine **gerçek boru kimyasından CE_IIW** hesaplanıyor.
+          * **>232 °C Tasarım Durdurma:** `T = 0.0 + "DURDURULMALIDIR"` ve `evaluate_decision_matrix` **FAIL** (sürünme kapsam dışı).
+
+          #### P2 — Profesyonelleşme ve Raporlama
+          * **Takviyesiz Fabricated Branch:** `d/D > 0.5` veya `Need_Reinf` iken **uyarı** (Para 831.4.1 sınırları).
+          * **Konum Sınıfına Göre Hidrotest:** `get_hydrotest_factor()` → Class 1: **1.10**, Class 2: **1.25**, Class 3/4: **1.40**.
+          * **Alan Metodu Varsayımları:** A1/A2 zon ayrımı, f_branch, A3 fillet-only, açılı A2 için ek sinβ gerekmemesi **Assumptions**’a eklendi.
+          * **Clause vs Heuristik Ayrımı:** HTML/PDF raporlara **“Uygunluk Bildirimi”** eklendi (lisanslı standart doğrulaması, repo yorumu heuristik işaretleri).
+          * **Kapsam:** 318 test, %94 kapsam, tüm modüller derlenebilir ve uygulama sorunsuz içe aktarılır.
 
           ### ✨ V3.5 Yenilikleri ve Geliştirmeler:
           * **Hot Tap P_safe Derating (API RP 2201 / Battelle)**: Canlı hat kaynağı sırasında güvenli maksimum işletme basıncı `P_safe = 2×S×F×E×T×(t_net−d_pen)/D`; elektrot penetrasyonu (`d_pen`), efektif kalan et kalınlığı (`t_eff`), basınç düşürme (derating) oranı ve PASS/FAIL kontrolü.

@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer V3.5.1
+ASME B31.8 Pipeline Designer V3.6.0
 İnteraktif 3D CAD Boru ve Branşman Modeli (3D CAD Surface / Mesh Diagram)
 Plotly 3D ile 360° dönebilen ana boru, branşman, fitting (olet / tee / sleeve /
 saddle / pad), kaynak dikişleri, vent deliği ve ebat etiketleri modeli.

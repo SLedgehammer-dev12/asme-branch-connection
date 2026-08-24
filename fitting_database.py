@@ -176,13 +176,25 @@ def make_run_pipe_key(standard, grade):
 
 
 def parse_fitting_spec_label(spec_label):
-    """'ASTM A234 WPB' -> ('ASTM A234', 'WPB')"""
+    """'ASTM A234 WPB' -> ('ASTM A234', 'WPB').
+
+    Çok kelimeli grade'ler (ör. 'WPHY 52', 'LF2 Class 1') için bilinen standart
+    öneklerini katalogdan eşleştirerek doğru (standard, grade) çiftini üretir.
+    """
     if not spec_label:
         return "Manuel/Diger", "Custom"
-    parts = spec_label.rsplit(" ", 1)
+    label = spec_label.strip()
+    stds = sorted(FITTING_MATERIALS_BY_STANDARD.keys(), key=len, reverse=True)
+    for std in stds:
+        if label == std:
+            grades = list(FITTING_MATERIALS_BY_STANDARD[std].keys())
+            return std, grades[0] if grades else "Custom"
+        if label.startswith(std + " "):
+            return std, label[len(std) + 1:]
+    parts = label.rsplit(" ", 1)
     if len(parts) == 2:
         return parts[0], parts[1]
-    return "Manuel/Diger", spec_label
+    return "Manuel/Diger", label
 
 
 def describe_nominal_equivalent_nps(nps_str):

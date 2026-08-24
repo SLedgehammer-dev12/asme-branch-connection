@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.5.1
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.6.0
 """
 
 import streamlit as st
@@ -8,6 +8,7 @@ from engine import (
     FittingMaterials,
     _evaluate_selected_fitting_against_recommendations,
     evaluate_sour_service_compliance,
+    compare_pipe_fitting_materials,
 )
 from ui.ui_diagram import create_cross_section_figure
 from ui.ui_diagram_3d import create_3d_cad_model_figure
@@ -512,6 +513,22 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             step=5.0,
             help="Alan hesabında kullanılır.",
         )
+
+    # Malzeme uyumluluk analizi (Boru vs Fitting: mukavemet / CE / tokluk)
+    if f_std != "Manuel/Diğer":
+        run_pipe_key = db.make_run_pipe_key(run_data.get("Standard", ""), run_data.get("Grade", ""))
+        compat = compare_pipe_fitting_materials(run_pipe_key, f_std, f_grd)
+        if compat:
+            with st.expander("🔍 Malzeme Uyumluluk Analizi (Boru vs Fitting)", expanded=False):
+                for line in compat:
+                    if line.strip() == "---":
+                        st.caption("—")
+                    elif "❌" in line:
+                        st.error(line.replace("🔍 **", "**").replace("**", ""))
+                    elif "⚠️" in line:
+                        st.warning(line.replace("🔍 **", "**").replace("**", ""))
+                    else:
+                        st.markdown(line)
 
     # Session state'e kaydetmek üzere kwargs topla
     st.session_state.current_eng_kwargs = {

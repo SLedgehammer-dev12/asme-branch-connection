@@ -313,6 +313,106 @@ def _match_decision_matrix_rule(stress_ratio: float, d_ratio: float, op_type: st
     return None
 
 
+_AREA_METHOD_NOTES = [
+    "A1 ana hat fazlalığı açıklık genişliği (d_opening) üzerinden, A2 branşman fazlalığı branşman zonu yüksekliği (2.5·t_b + T_s) üzerinden değerlendirilir (repo mühendislik yorumu).",
+    "A2'ye uygulanan f_branch mukavemet azaltma faktörü muhafazakâr bir yaklaşımdır; eklenen takviye malzemesi mukavemet kuralı lisanslı ASME B31.8 kopyası ile doğrulanmalıdır.",
+    "A3 kaynak alanı yalnızca köşe (fillet) kaynak bacak alanı (0.5·w²) olarak yaklaşık hesaplanır; tam penetrasyonlu kaynaklar ayrıca değerlendirilmelidir.",
+    "Açılı (β<90°) bağlantılarda A_req ve d_opening sinβ ile düzeltilir; A2 branşman zonu branşman ekseni boyunca ölçüldüğünden ek sinβ düzeltmesi uygulanmaz.",
+]
+
+
+def _api5l_to_whpy_grade(run_grade: str) -> str:
+    """API 5L boru grade'ini A860 WPHY / A694 F sınıf numarasına eşler.
+
+    'X52' -> '52', 'X65' -> '65', 'Grade B' -> '42' (SMYS ~245 MPa).
+    Bilinmeyen grade'ler muhafazakâr olarak '42' varsayılır.
+    """
+    g = (run_grade or "").strip().upper()
+    if g.startswith("X"):
+        num = "".join(filter(str.isdigit, g))
+        if num:
+            return num
+    return "42"
+
+
+def _pipe_fitting_comparison(run_pipe_key: str, fit_mat_key: str) -> List[str]:
+    """
+    Boru malzemesi ile tek bir fitting malzemesi arasında mukavemet (yield),
+    kaynaklanabilirlik (CE) ve tokluk (CVN) karşılaştırması üretir.
+    """
+    pipe_props = db.PIPE_MATERIALS_PROPS.get(run_pipe_key, {})
+    fit_props = db.FITTING_PROPS_DB.get(fit_mat_key, {})
+    if not pipe_props or not fit_props:
+        return []
+
+    entries = [f"🔍 **Uyumluluk Analizi: Boru vs {fit_mat_key}**"]
+    p_mech = pipe_props.get("Mech", {})
+    f_mech = fit_props.get("Mech", {})
+    p_chem = pipe_props.get("Chem", {})
+    f_chem = fit_props.get("Chem", {})
+
+    # A. Akma Mukavemeti Karşılaştırması
+    if "Yield" in p_mech and "Yield" in f_mech:
+        try:
+            py = int(p_mech["Yield"].split()[0])
+            fy = int(f_mech["Yield"].split()[0])
+            val_str = f"Yield: Boru {py} MPa vs Fitting {fy} MPa"
+            if fy >= py:
+                entries.append(f"✅ Mukavemet OK: Fitting akma değeri boru ile eşit veya üstünde. ({val_str})")
+            elif fy >= py * 0.95:
+                entries.append(f"⚠️ Mukavemet Uyarısı: Fitting hafif alt-eşleşmiş. Tasarım basıncını doğrulayın. ({val_str})")
+            else:
+                entries.append(f"❌ Mukavemet Uyumsuzluğu: Fitting akma değeri önemli ölçüde düşük ({val_str}). Tasarımı kontrol edin!")
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Yield karşılaştırma hatası: {e}")
+            entries.append(f"ℹ️ Mukavemet: Boru [{p_mech['Yield']}] vs Fitting [{f_mech['Yield']}]")
+
+    # B. Kaynaklanabilirlik (Karbon Eşdeğeri)
+    if "CE" in p_chem and "CE" in f_chem:
+        try:
+            p_ce = float(p_chem["CE"].replace(" max", ""))
+            f_ce = float(f_chem["CE"].replace(" max", ""))
+            delta = abs(p_ce - f_ce)
+            if delta < 0.05:
+                entries.append(f"✅ Kaynaklanabilirlik: Mükemmel uyumluluk (Delta CE={delta:.2f}).")
+            else:
+                entries.append(f"ℹ️ Kaynaklanabilirlik: CE farkı {delta:.2f}. WPS'de ön ısıtma gereksinimlerini kontrol edin.")
+        except (ValueError, AttributeError) as e:
+            logger.debug(f"CE karşılaştırma atlandı: {e}")
+
+    # C. Tokluk (CVN)
+    if "CVN" in p_mech:
+        f_cvn = f_mech.get("CVN", "Belirtilmemiş")
+        if "Req" in str(f_cvn):
+            entries.append(f"✅ Tokluk: Fitting standart gereği darbe testi gerektirir ({f_cvn}). Uyumlu.")
+        elif "J @" in str(f_cvn):
+            entries.append(f"✅ Tokluk: Fitting belgelenmiş darbe özelliklerine sahip ({f_cvn}).")
+        else:
+            entries.append("⚠️ Tokluk: Boru CVN gerektiriyor ancak fitting verisi genel. Satın alma siparişinde darbe testi belirtilmelidir.")
+
+    entries.append("---")
+    return entries
+
+
+def compare_pipe_fitting_materials(run_pipe_key: str, fitting_std: str, fitting_grade: Optional[str] = None) -> List[str]:
+    """
+    Boru malzemesi ile seçilen fitting malzemesi arasındaki uyumluluk analizini döndürür.
+
+    fitting_grade verilirse yalnızca o grade karşılaştırılır; verilmezse standardın
+    altındaki tüm grade'ler karşılaştırılır.
+    """
+    if not run_pipe_key:
+        return []
+    if fitting_grade:
+        keys = [f"{fitting_std} {fitting_grade}"]
+    else:
+        keys = [k for k in db.FITTING_PROPS_DB if k == fitting_std or k.startswith(fitting_std + " ")]
+    entries = []
+    for k in keys:
+        entries.extend(_pipe_fitting_comparison(run_pipe_key, k))
+    return entries
+
+
 class FittingMaterials:
     """Boru malzemesine ve sıcaklığa göre uyumlu fitting malzemesi seçer."""
 
@@ -325,15 +425,16 @@ class FittingMaterials:
         if is_low_temp or "A333" in run_std:
             return {
                 "ButtWeld": "ASTM A420 WPL6",
-                "Forged": "ASTM A350 LF2",
+                "Forged": "ASTM A350 LF2 Class 1",
                 "Note": f"Low-temperature service ({design_temp} C) - verify impact test requirements.",
             }
 
         if any(token in run_grade for token in ["S31803", "S32205", "F51"]) or "A790" in run_std:
+            wps = "WPS31803" if "S31803" in run_grade else "WPS32205"
             return {
-                "ButtWeld": "ASTM A403 WP316L",
+                "ButtWeld": f"ASTM A815 {wps}",
                 "Forged": "ASTM A182 F51",
-                "Note": "Duplex / corrosion-resistant service - verify WPS, ferrite control, and corrosion design basis.",
+                "Note": f"Duplex / corrosion-resistant service ({run_grade}) - verify WPS, ferrite control, and corrosion design basis.",
             }
 
         if any(token in run_grade for token in ["304", "316"]):
@@ -352,9 +453,9 @@ class FittingMaterials:
             }
 
         if "X" in run_grade or "PSL 2" in run_std:
-            grade_num = "".join(filter(str.isdigit, run_grade)) or "52"
+            grade_num = _api5l_to_whpy_grade(run_grade)
             return {
-                "ButtWeld": f"ASTM A860 WPHY {grade_num} / MSS SP-75",
+                "ButtWeld": f"ASTM A860 WPHY {grade_num}",
                 "Forged": f"ASTM A694 F{grade_num}",
                 "Note": f"High-strength service - verify impact test matching around {design_temp} C.",
             }
@@ -388,13 +489,13 @@ def get_temperature_derating_factor(design_temp_c: float) -> Tuple[float, Option
     """
     if design_temp_c <= 121.0:
         return 1.000, None
-    elif design_temp_c >= 232.0:
+    elif design_temp_c > 232.0:
         warning = (
             f"Tasarım sıcaklığı ({design_temp_c} °C) ASME B31.8 Table 841.1.8-1 sınırını (232 °C / 450 °F) "
-            "aşmaktadır. Ekstrapolasyon ile T hesaplanmıştır; malzeme sürünme (creep) sınırını kontrol ediniz."
+            "aşmaktadır. Bu çelikler için tasarım DURDURULMALIDIR; sürünme (creep) dirençli malzeme ve ayrı "
+            "mühendislik değerlendirmesi gereklidir."
         )
-        t_extrap = max(0.5, 0.867 - (design_temp_c - 232.0) * ((0.900 - 0.867) / (232.0 - 204.0)))
-        return round(t_extrap, 3), warning
+        return 0.0, warning
 
     for i in range(len(TEMPERATURE_DERATING_TABLE) - 1):
         t1, f1 = TEMPERATURE_DERATING_TABLE[i]
@@ -611,6 +712,26 @@ def auto_size_reinforcement_pad(
 
 
 # 7. ASME B31.8 Para 841.3.2 Hidrostatik Saha Test Basıncı Değerlendirmesi
+# Konum sınıfına göre minimum test basıncı oranı (MAOP çarpanı).
+# NOT: Bu oranlar repo mühendislik yorumudur; kesin değerler için lisanslı
+# ASME B31.8 Para 841.3.2/841.3.3 kopyası ile doğrulanmalıdır.
+_HYDROTEST_FACTORS = {
+    "Class 1": 1.10,
+    "Class 2": 1.25,
+    "Class 3": 1.40,
+    "Class 4": 1.40,
+}
+
+
+def get_hydrotest_factor(location_class_name: Optional[str] = None) -> float:
+    """Konum sınıfına göre hidrostatik test basıncı oranını döndürür."""
+    if location_class_name:
+        for k, v in _HYDROTEST_FACTORS.items():
+            if k in location_class_name:
+                return v
+    return 1.25
+
+
 def evaluate_hydrotest_pressure(
     P_design_MPa: float,
     location_class: str = "Class 1, Division 2",
@@ -953,7 +1074,7 @@ class DecisionMatrixEvaluator:
             }
 
         # 2. Fitting Malzeme Özellikleri (Çoklu Standart Eşleşmesi)
-        matched_keys = [key for key in db.FITTING_PROPS_DB if key in mat_std]
+        matched_keys = [key for key in db.FITTING_PROPS_DB if key == mat_std or key.startswith(mat_std + " ")]
 
         if not matched_keys:
             details["MaterialProps"] = {"Note": "Standart Malzeme Özellikleri"}
@@ -966,77 +1087,8 @@ class DecisionMatrixEvaluator:
         for fit_mat_key in matched_keys:
             fit_props = db.FITTING_PROPS_DB.get(fit_mat_key, {})
             all_props[fit_mat_key] = fit_props
-
             if run_pipe_key:
-                pipe_props = db.PIPE_MATERIALS_PROPS.get(run_pipe_key, {})
-                if pipe_props:
-                    all_comparisons.append(f"🔍 **Uyumluluk Analizi: Boru vs {fit_mat_key}**")
-
-                    p_mech = pipe_props.get("Mech", {})
-                    f_mech = fit_props.get("Mech", {})
-                    p_chem = pipe_props.get("Chem", {})
-                    f_chem = fit_props.get("Chem", {})
-
-                    # A. Akma Mukavemeti Karşılaştırması
-                    if "Yield" in p_mech and "Yield" in f_mech:
-                        try:
-                            py = int(p_mech["Yield"].split()[0])
-                            fy = int(f_mech["Yield"].split()[0])
-                            val_str = f"Yield: Boru {py} MPa vs Fitting {fy} MPa"
-
-                            if fy >= py:
-                                all_comparisons.append(
-                                    f"✅ Mukavemet OK: Fitting akma değeri boru ile eşit veya üstünde. ({val_str})"
-                                )
-                            elif fy >= py * 0.95:
-                                all_comparisons.append(
-                                    f"⚠️ Mukavemet Uyarısı: Fitting hafif alt-eşleşmiş. Tasarım basıncını doğrulayın. ({val_str})"
-                                )
-                            else:
-                                all_comparisons.append(
-                                    f"❌ Mukavemet Uyumsuzluğu: Fitting akma değeri önemli ölçüde düşük ({val_str}). Tasarımı kontrol edin!"
-                                )
-                        except (ValueError, IndexError) as e:
-                            logger.warning(f"Yield karşılaştırma hatası: {e}")
-                            all_comparisons.append(
-                                f"ℹ️ Mukavemet: Boru [{p_mech['Yield']}] vs Fitting [{f_mech['Yield']}]"
-                            )
-
-                    # B. Kaynaklanabilirlik (Karbon Eşdeğeri)
-                    if "CE" in p_chem and "CE" in f_chem:
-                        try:
-                            p_ce = float(p_chem["CE"].replace(" max", ""))
-                            f_ce = float(f_chem["CE"].replace(" max", ""))
-                            delta = abs(p_ce - f_ce)
-
-                            if delta < 0.05:
-                                all_comparisons.append(
-                                    f"✅ Kaynaklanabilirlik: Mükemmel uyumluluk (Delta CE={delta:.2f})."
-                                )
-                            else:
-                                all_comparisons.append(
-                                    f"ℹ️ Kaynaklanabilirlik: CE farkı {delta:.2f}. WPS'de ön ısıtma gereksinimlerini kontrol edin."
-                                )
-                        except (ValueError, AttributeError) as e:
-                            logger.debug(f"CE karşılaştırma atlandı: {e}")
-
-                    # C. Tokluk (CVN)
-                    if "CVN" in p_mech:
-                        f_cvn = f_mech.get("CVN", "Belirtilmemiş")
-                        if "Req" in str(f_cvn):
-                            all_comparisons.append(
-                                f"✅ Tokluk: Fitting standart gereği darbe testi gerektirir ({f_cvn}). Uyumlu."
-                            )
-                        elif "J @" in str(f_cvn):
-                            all_comparisons.append(
-                                f"✅ Tokluk: Fitting belgelenmiş darbe özelliklerine sahip ({f_cvn})."
-                            )
-                        else:
-                            all_comparisons.append(
-                                f"⚠️ Tokluk: Boru CVN gerektiriyor ancak fitting verisi genel. Satın alma siparişinde darbe testi belirtilmelidir."
-                            )
-
-                    all_comparisons.append("---")
+                all_comparisons.extend(_pipe_fitting_comparison(run_pipe_key, fit_mat_key))
 
         details["MaterialProps"] = all_props
         details["Comparison"] = all_comparisons
@@ -1212,6 +1264,21 @@ class DecisionMatrixEvaluator:
         ve B31.8 Table 831.4.2-1 önerilerini döndürür.
         """
         self.messages.clear()
+
+        # ASME B31.8 Table 841.1.8-1 sıcaklık limiti (232 °C / 450 °F) üstünde
+        # tasarım yapılmaz; sürünme (creep) ve malzeme uygunluğu bu kapsam dışındadır.
+        if self.design_temp > 232.0:            return {
+                "status": "FAIL",
+                "errors": [
+                    f"Tasarım sıcaklığı ({self.design_temp} °C) ASME B31.8 Table 841.1.8-1 "
+                    "sınırını (232 °C / 450 °F) aşmaktadır. Bu çelikler için bu sıcaklık üstünde "
+                    "tasarım yapılamaz; sürünme (creep) dirençli malzeme ve ayrı bir mühendislik "
+                    "değerlendirmesi gereklidir."
+                ],
+                "messages": list(self.messages),
+                "ClauseTrace": [],
+                "Assumptions": [],
+            }
 
         # Dikiş faktörleri (Ana hat ve Branşman bağımsız olabilir)
         E_h = run.get("E") or (get_joint_factor(run.get("seam_type")) if run.get("seam_type") else self.pressure_calc.E)
@@ -1515,10 +1582,15 @@ class PipelineExpertEngine:
             A_req = d_hole * t_req_h
 
         # Takviye Bölgesi Limitleri (L)
+        # ASME B31.8 alan telafisi yönteminde A1 ve A2 kendi zonlarında değerlendirilir:
+        #  - A1 (ana hat fazlalığı) açıklık genişliği (d_opening) üzerinden
+        #  - A2 (branşman fazlalığı) branşman zonu yüksekliği üzerinden (2.5*t_b + T_s)
+        # NOT: Bu zon yaklaşımı repo mühendislik yorumudur; kesin sınırlar lisanslı
+        # ASME B31.8 kopyası ile doğrulanmalıdır.
         T_s = self.pad_props.get("T_pad", 0) if self.pad_props.get("has_pad") else 0
         L_1 = 2.5 * wt_h_net
         L_2 = (2.5 * wt_b_net) + T_s
-        L_reinforcement = min(L_1, L_2)
+        L_reinforcement = L_2
 
         # Mukavemet Faktörleri
         S_h = run["SMYS_MPa"]
@@ -1545,8 +1617,8 @@ class PipelineExpertEngine:
             else:
                 A1 = (wt_h_net - t_req_h) * d_opening
 
-        # A2 (Branşman Boru Artı Alanı)
-        A2 = 2.0 * (wt_b_net - t_req_b) * L_reinforcement * f_branch
+        # A2 (Branşman Boru Artı Alanı) - branşman zonu yüksekliği (L_2) ile
+        A2 = 2.0 * (wt_b_net - t_req_b) * L_2 * f_branch
 
         # A3 (Kaynak Alanı)
         A3 = 0.0
@@ -1618,10 +1690,14 @@ class PipelineExpertEngine:
                     f"API RP 2201 Uyarısı: Net et kalınlığı ({wt_h_net:.2f} mm) 6.4 mm altındadır. Canlı hat kaynağı için kalifiye In-Service WPS uygulanmalıdır."
                 )
 
-            # API 1104 Annex B ön ısıtma / ısı girdisi önerisi (CE temsili değerle)
+            # API 1104 Annex B ön ısıtma / ısı girdisi önerisi
+            # Karbon eşdeğeri (CE_IIW) gerçek boru kimyasından hesaplanır.
             branch_id = max(0.0, branch["OD_mm"] - 2.0 * branch.get("WT_mm", 0.0))
+            run_pipe_key = db.make_run_pipe_key(run.get("Standard", ""), run.get("Grade", ""))
+            pipe_chem = db.PIPE_MATERIALS_PROPS.get(run_pipe_key, {}).get("Chem", {})
+            ce_iiw = calculate_carbon_equivalent(pipe_chem)["CE_IIW"] if pipe_chem else 0.38
             hot_tap_guidance = evaluate_hot_tap_welding(
-                ce_iiw=0.38,
+                ce_iiw=ce_iiw,
                 wt_mm=wt_h_net,
                 flow_velocity_ms=self.hot_tap_flow_ms,
             )
@@ -1690,10 +1766,42 @@ class PipelineExpertEngine:
         ):
             is_exempt = True
             Need_Reinf = False
-            self._add_message(
-                "info",
-                f"Seçilen donanım tipi ({selected_fitting_type}) için ASME B31.8 Para 831.4.2 gereği alan telafisi (Area Replacement) standart üretici/özel dizayn garantisi altındadır. İlave Pad vb. hesapları opsiyoneldir veya tasarıma dahil edilmez.",
-            )
+            ftype_up = selected_fitting_type.upper()
+            if "SPLIT TEE" in ftype_up or "SLEEVE" in ftype_up:
+                self._add_message(
+                    "info",
+                    f"Seçilen donanım tipi ({selected_fitting_type}) için ASME B31.8 Para 831.4.2(h) & ASME PCC-2 gereği "
+                    "alan telafisi (Area Replacement) ayrıca hesaplanmaz; manşon basınç tutma kalınlığı (T_sleeve ≥ t_req_h) "
+                    "ayrı bir doğrulama ile kontrol edilir.",
+                )
+            elif "OLET" in ftype_up or "SOCKOLET" in ftype_up:
+                self._add_message(
+                    "info",
+                    f"Seçilen donanım tipi ({selected_fitting_type}) MSS SP-97 integral takviyeli (integrally reinforced) "
+                    "üründür; üretici basınç sınıfı (3000#/6000#) eşleştiğinde ilave alan telafisi aranmaz (ASME B31.8 Para 831.4.2).",
+                )
+            else:
+                self._add_message(
+                    "info",
+                    f"Seçilen donanım tipi ({selected_fitting_type}) fabrika ürünü olduğundan ASME B31.8 Para 831.4.2 gereği "
+                    "alan telafisi (Area Replacement) üretici/burst-test garantisi altındadır. İlave Pad vb. hesapları opsiyoneldir.",
+                )
+
+        # Takviyesiz fabricated branch geometrik limit kontrolü
+        if selected_fitting_type and "FABRICATED" in selected_fitting_type.upper() and not self.pad_props.get("has_pad"):
+            if d_ratio > 0.5:
+                self._add_message(
+                    "warning",
+                    f"Takviyesiz fabricated branch için branşman/ana hat çap oranı (d/D = {d_ratio:.2f}) "
+                    f"yüksektir. ASME B31.8 Para 831.4.1 takviyesiz (unreinforced) açıklık sınırları aşılmış olabilir; "
+                    f"takviye (pad) veya tee/split tee kullanımı değerlendirilmelidir. (Repo mühendislik yorumu - lisanslı kopya ile doğrulayın.)"
+                )
+            if Need_Reinf:
+                self._add_message(
+                    "warning",
+                    f"Takviyesiz fabricated branch için gerekli alan (A_req = {A_req:.0f} mm²) karşılanmıyor; "
+                    f"ASME B31.8 Para 831.4.1 gereği takviye zorunludur (takviyesiz açıklık kabul edilemez)."
+                )
 
         # Otomatik Pad Boyutlandırma
         auto_pad = auto_size_reinforcement_pad(
@@ -1726,11 +1834,11 @@ class PipelineExpertEngine:
                 f"Split Tee / Sleeve ({split_tee['split_type']}): {split_tee['recommendation']}",
             )
 
-        # Hidrostatik Saha Testi Analizi
+        # Hidrostatik Saha Testi Analizi (konum sınıfına göre test faktörü)
         hydrotest = evaluate_hydrotest_pressure(
             P_design_MPa=self.P_MPa,
             location_class=self.location_class or "Class 1, Division 2",
-            test_factor=1.25,
+            test_factor=get_hydrotest_factor(self.location_class),
             run_od_mm=run["OD_mm"],
             wt_h_net_mm=wt_h_net,
             smys_mpa=run["SMYS_MPa"],
@@ -1780,12 +1888,12 @@ class PipelineExpertEngine:
             "d_hole": d_hole,
             "d_opening": d_opening,
             "A_req": A_req,
-            "A_avail": A_avail,
-            "A1": A1,
-            "A2": A2 if not is_exempt else 0.0,
-            "A3": A3 if not is_exempt else 0.0,
-            "A4": A4 if not is_exempt else 0.0,
-            "W_p": W_p,
+            "A_avail": 0.0 if is_exempt else A_avail,
+            "A1": 0.0 if is_exempt else A1,
+            "A2": 0.0 if is_exempt else A2,
+            "A3": 0.0 if is_exempt else A3,
+            "A4": 0.0 if is_exempt else A4,
+            "W_p": 0.0 if is_exempt else W_p,
             "f_branch": f_branch,
             "f_sleeve": f_sleeve,
             "Missing": Missing_Area,
@@ -1811,7 +1919,7 @@ class PipelineExpertEngine:
             "messages": self.messages,
             "ClauseTrace": list(dm_res.get("ClauseTrace", []))
             + ([{"type": "clause", "ref": "Para 831.4.1(b)", "note": "β < 45° durumunda basit alan telafisi yöntemi sınırlandırılır; FEA veya özel takviyeli tasarım ile doğrulama önerilir."}] if beta_fea_warning else []),
-            "Assumptions": dm_res.get("Assumptions", []),
+            "Assumptions": list(dm_res.get("Assumptions", [])) + _AREA_METHOD_NOTES,
             "Final_Action": (
                 "Branşman açısı β < 45° olduğundan basit alan telafisi yeterli görülmez. Sonlu Elemanlar Analizi (FEA) "
                 "veya özel takviyeli tasarım ile mühendis doğrulaması gereklidir."
@@ -2066,7 +2174,13 @@ class PipelineExpertEngine:
             {sign_html}
             <hr style="margin-top:20px; border:none; border-top:1px solid #BDC3C7;">
             <p style="font-size:10px; color:#7F8C8D; text-align:center;">
-                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.5.1 tarafından üretilmiştir.
+                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.6.0 tarafından üretilmiştir.
+            </p>
+            <p style="font-size:9px; color:#95A5A6; text-align:center; max-width:760px; margin:4px auto;">
+                <b>Uygunluk Bildirimi:</b> Clause referansları (Para/Tablo numaraları) bilgilendirme amaçlıdır; normatif değerler
+                lisanslı ASME B31.8, API 1104, API RP 2201, MSS SP-97, NACE MR0175/ISO 15156, ASME PCC-2 ve EN/ASTM malzeme
+                standart kopyaları ile doğrulanmalıdır. "Repo mühendislik yorumu" olarak işaretlenen eşikler ve heuristikler
+                muhafazakâr mühendislik kabulleridir. Nihai uygunluk, satın alma ve saha uygulama kararı sorumlu mühendise aittir.
             </p>
         </body>
         </html>

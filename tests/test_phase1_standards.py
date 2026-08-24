@@ -60,9 +60,21 @@ class TestTemperatureDeratingFactor:
 
     def test_temperature_above_232C_generates_warning(self):
         t_val, warning = get_temperature_derating_factor(250.0)
-        assert t_val < 0.867
+        assert t_val == 0.0
         assert warning is not None
-        assert "ASME B31.8" in warning
+        assert "DURDURULMALIDIR" in warning
+
+    def test_design_temp_above_232_stops_dm(self):
+        run_data = {"OD_mm": 323.9, "WT_mm": 9.5, "SMYS_MPa": 241.0, "Standard": "API 5L", "Grade": "B"}
+        branch_data = {"OD_mm": 168.3, "WT_mm": 7.1, "SMYS_MPa": 241.0, "Standard": "API 5L", "Grade": "B"}
+        eng = PipelineExpertEngine(
+            P_val=5.0, P_unit="MPa", F=0.72, E=1.0, T=1.0, CA_mm=1.0,
+            op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
+            pad_props={"has_pad": False}, design_temp=250.0, fitting_smys=241.0,
+        )
+        res = eng.evaluate_decision_matrix(run_data, branch_data)
+        assert res["status"] == "FAIL"
+        assert any("232" in e for e in res["errors"])
 
 
 class TestJointFactors:

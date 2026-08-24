@@ -1180,5 +1180,53 @@
       "SpecLabel": "ASTM A537 Class 2",
       "Form": "Plate"
     }
+  },
+  "ASTM A815": {
+    "WPS31803": {
+      "SMYS_MPa": 450,
+      "Desc": "Duplex (UNS S31803) butt-weld fitting",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "620 MPa (90 ksi)",
+        "Elong": "25%",
+        "Hardness": "290 HB max"
+      },
+      "Chem": {
+        "C": "0.030 max",
+        "Mn": "2.00 max",
+        "P": "0.030 max",
+        "S": "0.020 max",
+        "Si": "1.00 max",
+        "Cr": "21.0-23.0",
+        "Ni": "4.5-6.5",
+        "Mo": "2.5-3.5",
+        "N": "0.08-0.20"
+      },
+      "SpecLabel": "ASTM A815 WPS31803",
+      "Form": "ButtWeld"
+    },
+    "WPS32205": {
+      "SMYS_MPa": 450,
+      "Desc": "Duplex (UNS S32205 / 2205) butt-weld fitting",
+      "Mech": {
+        "Yield": "450 MPa (65 ksi)",
+        "Tensile": "655 MPa (95 ksi)",
+        "Elong": "25%",
+        "Hardness": "290 HB max"
+      },
+      "Chem": {
+        "C": "0.030 max",
+        "Mn": "2.00 max",
+        "P": "0.030 max",
+        "S": "0.020 max",
+        "Si": "1.00 max",
+        "Cr": "22.0-23.0",
+        "Ni": "4.5-6.5",
+        "Mo": "3.0-3.5",
+        "N": "0.14-0.20"
+      },
+      "SpecLabel": "ASTM A815 WPS32205",
+      "Form": "ButtWeld"
+    }
   }
 }

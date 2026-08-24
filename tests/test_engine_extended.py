@@ -176,16 +176,24 @@ class TestInputValidatorExtended:
 class TestFittingMaterialsExtended:
     def test_duplex_s31803_material(self):
         result = FittingMaterials.get_compatible_material("ASTM A790", "S31803", 20.0)
-        assert "ASTM A403 WP316L" in result["ButtWeld"]
+        assert "ASTM A815 WPS31803" in result["ButtWeld"]
         assert "Duplex" in result["Note"]
+
+    def test_duplex_s32205_material(self):
+        result = FittingMaterials.get_compatible_material("ASTM A790", "S32205", 20.0)
+        assert "ASTM A815 WPS32205" in result["ButtWeld"]
 
     def test_duplex_f51_material(self):
         result = FittingMaterials.get_compatible_material("ASTM A790", "F51", 20.0)
+        assert "ASTM A815" in result["ButtWeld"]
         assert "Duplex" in result["Note"]
 
     def test_psl2_triggers_high_strength(self):
         result = FittingMaterials.get_compatible_material("API 5L PSL 2", "Grade B", 20.0)
         assert "High-strength" in result["Note"]
+        # Grade B (rakam yok) muhafazakâr olarak WPHY 42'ye eşlenir (WPHY 52 değil)
+        assert "WPHY 42" in result["ButtWeld"]
+        assert result["Forged"] == "ASTM A694 F42"
 
     def test_x42_high_strength(self):
         result = FittingMaterials.get_compatible_material("API 5L", "X42", 20.0)
@@ -346,10 +354,10 @@ class TestAnalyzeExtended:
         wt_b_net = branch_data["WT_mm"] - 3.0
         expected_l1 = 2.5 * wt_h_net
         expected_l2 = 2.5 * wt_b_net + 10.0
-        expected_l = min(expected_l1, expected_l2)
         assert abs(result["L1"] - expected_l1) < 0.01
         assert abs(result["L2"] - expected_l2) < 0.01
-        assert abs(result["L_eff"] - expected_l) < 0.01
+        # A2, branşman zonu yüksekliğini (L_2) kullanır; L_eff artık L_2'ye eşittir
+        assert abs(result["L_eff"] - expected_l2) < 0.01
 
     def test_final_action_present(self, run_data, branch_data):
         eng = PipelineExpertEngine(

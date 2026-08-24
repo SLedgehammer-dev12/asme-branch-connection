@@ -209,6 +209,13 @@ def build_pdf_report(
         "Son uygunluk, satın alma ve saha uygulama kararı sorumlu mühendise aittir.",
         small,
     ))
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph(
+        "Uygunluk Bildirimi: Clause referansları bilgilendirme amaçlıdır; normatif değerler lisanslı ASME B31.8, "
+        "API 1104, API RP 2201, MSS SP-97, NACE MR0175/ISO 15156, ASME PCC-2 ve EN/ASTM malzeme standart kopyaları "
+        "ile doğrulanmalıdır. 'Repo mühendislik yorumu' olarak işaretlenen eşikler muhafazakâr kabullerdir.",
+        small,
+    ))
 
     doc.build(story)
     return {"path": output_path, "pages": doc.page, "reportlab": True, "error": None}
