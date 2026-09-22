@@ -131,6 +131,9 @@ class TestCalculationDossierReport:
         assert "L_eff = min(" in report
         assert "A2 = 2 ×" in report
         assert "A4 = 2 × W_p" in report
+        # Teknik kesit şeması (SVG) rapora gömülü olmalı
+        assert "<svg" in report
+        assert "Teknik Kesit Şeması" in report
 
 
 from ui.ui_diagram import create_cross_section_figure

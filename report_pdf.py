@@ -22,6 +22,7 @@ try:  # pragma: no cover - bağımlılık yoksa düşüş
     )
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.graphics.shapes import Drawing, Polygon, Line, String
     _REPORTLAB_OK = True
 except Exception:  # pragma: no cover
     _REPORTLAB_OK = False
@@ -154,13 +155,62 @@ def reportlab_available() -> bool:
     return _REPORTLAB_OK
 
 
+def _schematic_drawing(geo: Dict[str, Any], width_mm: float = 165.0):
+    """Şematik geometriyi ReportLab Drawing (vektör) akışkanına çevirir."""
+    from reportlab.lib.colors import HexColor
+
+    w = max(1.0, float(geo.get("width", 100.0)))
+    h = max(1.0, float(geo.get("height", 100.0)))
+    oy = float(geo.get("origin_y", 0.0))
+    scale = width_mm / w
+    drawing = Drawing(width_mm, h * scale)
+
+    def _x(x: float) -> float:
+        return (x + w / 2.0) * scale
+
+    def _y(y: float) -> float:
+        return (y - oy) * scale
+
+    for poly in geo.get("polys", []):
+        pts = []
+        for px_, py_ in poly["points"]:
+            pts.extend([_x(px_), _y(py_)])
+        drawing.add(Polygon(
+            points=pts,
+            fillColor=HexColor(poly.get("fill", "#EEEEEE")),
+            strokeColor=HexColor(poly.get("stroke", "#333333")),
+            strokeWidth=0.6,
+        ))
+    for ln in geo.get("lines", []):
+        drawing.add(Line(
+            _x(ln["x0"]), _y(ln["y0"]), _x(ln["x1"]), _y(ln["y1"]),
+            strokeColor=HexColor(ln.get("color", "#333333")),
+            strokeWidth=0.7,
+            strokeDashArray=[2, 1.5],
+        ))
+    for txt in geo.get("texts", []):
+        drawing.add(String(
+            _x(txt["x"]), _y(txt["y"]), str(txt.get("text", "")),
+            fontSize=max(4.5, float(txt.get("size", 10)) * 0.6),
+            fillColor=HexColor(txt.get("color", "#0F172A")),
+        ))
+    return drawing
+
+
 def build_pdf_report(
     analysis_result: Dict[str, Any],
     meta: ReportMeta,
     output_path: str,
+    run_data: Optional[Dict[str, Any]] = None,
+    branch_data: Optional[Dict[str, Any]] = None,
+    pad_props: Optional[Dict[str, Any]] = None,
+    weld_legs: Optional[Dict[str, Any]] = None,
+    fitting_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Analiz sonucundan PDF hesap föyü üretir.
+
+    run_data/branch_data verilirse teknik kesit şeması (vektör) rapora eklenir.
 
     Returns:
         {"path", "pages", "reportlab": bool, "error": str|None}
@@ -357,6 +407,22 @@ def build_pdf_report(
             ("FONTNAME", (0, 0), (-1, 0), _FONT_TR_BOLD),
         ]))
         story.append(st_tbl)
+
+    # Teknik kesit şeması (vektör — harici bağımlılık yok)
+    if run_data and branch_data:
+        try:
+            from cad_svg import schematic_geometry
+
+            geo = schematic_geometry(
+                run_data, branch_data, analysis_result or {},
+                pad_props=pad_props or {}, weld_legs=weld_legs or {},
+                fitting_type=fitting_type or (analysis_result or {}).get("selected_fitting_type"),
+            )
+            story.append(Spacer(1, 6 * mm))
+            story.append(Paragraph("Teknik Kesit Şeması (2D)", heading))
+            story.append(_schematic_drawing(geo, width_mm=165.0))
+        except Exception:
+            pass
 
     # Onay imza bloğu
     story.append(Spacer(1, 12 * mm))

@@ -97,25 +97,30 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             f"**T_pad = {auto_pad['T_pad_min']} mm**, **D_pad = {auto_pad['D_pad_min']} mm** (W_p = {auto_pad['W_p_min']} mm)."
         )
 
-    # Ana metrikler
+    # Ana metrikler (birim sistemi duyarlı; motor daima metric hesaplar)
+    _len_txt = (lambda v: f"{v:.1f} mm") if us.is_metric else (lambda v: f"{us.length(v):.2f} in")
+    _area_txt = (lambda v: f"{v:.0f} mm²") if us.is_metric else (lambda v: f"{us.area(v):.2f} in²")
+    _len_help = (lambda v: f"{us.length(v):.2f} in") if us.is_metric else (lambda v: f"{v:.1f} mm")
+
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Gerekli Alan (A_req)", f"{ar['A_req']:.0f} mm²", help=f"Açı: {branch_angle_deg}° (sin β = {ar.get('d_opening', ar.get('d_hole',0)):.1f} mm açıklık)")
-    col2.metric("Mevcut Alan (A_avail)", f"{ar['A_avail']:.0f} mm²",
-                delta=f"{'✅ Yeterli' if not need_reinf else '❌ Eksik ' + str(int(missing)) + ' mm²'}")
-    col3.metric("Delik Çapı (d_hole)", f"{ar['d_hole']:.1f} mm")
-    col4.metric("Etkin Takviye Zonu (L_eff)", f"{ar['L_eff']:.1f} mm",
-                help="L_eff = min(L₁, L₂). A2 (branşman artı alanı) bu zon içinde sayılır.")
+    col1.metric("Gerekli Alan (A_req)", _area_txt(ar['A_req']),
+                help=f"Açı: {branch_angle_deg}° (d_opening = {_len_txt(ar.get('d_opening', ar.get('d_hole',0)))}) | {_len_help(ar.get('d_opening', ar.get('d_hole',0)))}")
+    col2.metric("Mevcut Alan (A_avail)", _area_txt(ar['A_avail']),
+                delta=f"{'✅ Yeterli' if not need_reinf else '❌ Eksik ' + _area_txt(missing)}")
+    col3.metric("Delik Çapı (d_hole)", _len_txt(ar['d_hole']), help=_len_help(ar['d_hole']))
+    col4.metric("Etkin Takviye Zonu (L_eff)", _len_txt(ar['L_eff']),
+                help="L_eff = min(L₁, L₂). A2 (branşman artı alanı) bu zon içinde sayılır. " + _len_help(ar['L_eff']))
 
     # Alan bileşenleri
     st.markdown("#### Alan Bileşenleri")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("A1 (Ana Boru)", f"{ar['A1']:.0f} mm²",
+    c1.metric("A1 (Ana Boru)", _area_txt(ar['A1']),
               help="Ana hat fazlalık alanı. Hot tap operasyonunda güvenlik için 0 alınır.")
-    c2.metric("A2 (Branşman)", f"{ar['A2']:.0f} mm²",
+    c2.metric("A2 (Branşman)", _area_txt(ar['A2']),
               help="Branşman borusu fazlalık alanı (L_eff = min(L₁,L₂) zonu içinde)")
-    c3.metric("A3 (Kaynak)", f"{ar['A3']:.0f} mm²",
+    c3.metric("A3 (Kaynak)", _area_txt(ar['A3']),
               help="Kaynak dikişi katkısı")
-    c4.metric("A4 (Pad/Sleeve)", f"{ar['A4']:.0f} mm²",
+    c4.metric("A4 (Pad/Sleeve)", _area_txt(ar['A4']),
               help="Takviye pedi veya manşon katkısı")
 
     # Alan telafisi hesap detayları (motorun ürettiği sayısal ikame — area_details)
@@ -369,14 +374,18 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     if ar.get("Final_Action"):
         st.info(f"📌 **Sonraki Mühendislik Aksiyonu:** {ar['Final_Action']}")
 
-    # HTML Rapor indirme
+    # Raporlama bilgileri (HTML + PDF ortak tek kart)
     st.markdown("---")
-    st.subheader("📄 Profesyonel Mühendislik Hesap Dosyası (Calculation Dossier)")
-
-    c_p1, c_p2, c_p3 = st.columns(3)
-    proj_name = c_p1.text_input("Proje Adı", value="Doğalgaz Boru Hattı Branşman Tasarımı")
-    doc_no = c_p2.text_input("Doküman No", value="CALC-ASME-B31.8-001")
-    prep_by = c_p3.text_input("Hazırlayan Mühendis", value="Boru Hattı Tasarım Mühendisi")
+    st.subheader("📄 Raporlama Bilgileri ve Hesap Dosyası")
+    with st.container(border=True):
+        r1, r2, r3 = st.columns(3)
+        proj_name = r1.text_input("Proje Adı", value="Doğalgaz Boru Hattı Branşman Tasarımı", key="rep_project")
+        doc_no = r2.text_input("Doküman No", value="CALC-ASME-B31.8-001", key="rep_doc")
+        rev_no = r3.text_input("Revizyon", value="0", key="rep_rev")
+        r4, r5, r6 = st.columns(3)
+        prep_by = r4.text_input("Hazırlayan Mühendis", value="Boru Hattı Tasarım Mühendisi", key="rep_prepared")
+        checked_by = r5.text_input("Kontrol Eden Mühendis", value="Kontrol Mühendisi", key="rep_checked")
+        approved_by = r6.text_input("Onaylayan Mühendis", value="Onay Mühendisi", key="rep_approved")
 
     try:
         eng = PipelineExpertEngine(
@@ -406,7 +415,10 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             run_data, branch_data, ar,
             project_name=proj_name,
             doc_no=doc_no,
-            prepared_by=prep_by
+            revision=rev_no,
+            prepared_by=prep_by,
+            checked_by=checked_by,
+            approved_by=approved_by,
         )
         st.download_button(
             label="📥 Profesyonel Hesap Dosyasını (HTML / PDF Yazdırılabilir) İndir",
@@ -419,11 +431,8 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     except Exception as e:
         st.error(f"Rapor oluşturulamadı: {e}")
 
-    # Faz 4: Doğrudan PDF hesap föyü
+    # Doğrudan PDF hesap föyü (aynı metadata kartını kullanır)
     st.caption("İmzalı / kaşeli resmi PDF hesap föyü:")
-    checked_by = st.text_input("Kontrol Eden Mühendis", value="Kontrol Mühendisi", key="pdf_checked")
-    approved_by = st.text_input("Onaylayan Mühendis", value="Onay Mühendisi", key="pdf_approved")
-    rev_no = st.text_input("Revizyon No", value="0", key="pdf_rev")
     if st.button("📄 PDF Hesap Föyü Oluştur ve İndir", use_container_width=True):
         try:
             import os
@@ -439,7 +448,14 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             )
             tmpdir = tempfile.mkdtemp()
             pdf_path = os.path.join(tmpdir, f"{doc_no}_dossier.pdf")
-            pdf_res = build_pdf_report(ar, meta, pdf_path)
+            pdf_res = build_pdf_report(
+                ar, meta, pdf_path,
+                run_data=run_data,
+                branch_data=branch_data,
+                pad_props=eng_kwargs.get("pad_props", {}),
+                weld_legs=eng_kwargs.get("weld_legs", {}),
+                fitting_type=selected_fitting,
+            )
             if pdf_res["error"]:
                 st.warning(pdf_res["error"])
             else:
@@ -733,6 +749,8 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         )
         res = eng.analyze(run_data, branch_data, selected_fitting)
         st.session_state.analysis_results = res
+        # Analiz tamamlandı → 3. adım (temiz sonuç/rapor ekranı)
+        st.session_state.step = 3
         st.rerun()
 
 

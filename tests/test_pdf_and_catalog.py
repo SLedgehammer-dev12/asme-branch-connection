@@ -82,6 +82,30 @@ class TestReportPdf:
             assert os.path.exists(out)
             assert os.path.getsize(out) > 1000
 
+    def test_pdf_with_schematic(self):
+        """run/branch/pad verilirse PDF'e vektör kesit şeması eklenir."""
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        result = {
+            "status": "OK", "A_req": 500.0, "A_avail": 600.0, "Missing": 0.0,
+            "Need_Reinf": False, "Stress_Ratio": 0.4, "d_ratio": 0.3,
+            "wt_h_net": 12.8, "wt_b_net": 7.8, "t_h_mm": 5.9, "t_b_mm": 3.9,
+            "d_hole": 254.4, "L_eff": 36.7, "A1": 0.0, "A2": 30.0, "A3": 72.0, "A4": 1000.0,
+            "selected_fitting_type": "REINFORCING PAD",
+        }
+        meta = ReportMeta(project_name="Şema", doc_number="CALC-S-1", revision="0")
+        with tempfile.TemporaryDirectory() as tmp:
+            out = os.path.join(tmp, "schematic.pdf")
+            res = build_pdf_report(
+                result, meta, out,
+                run_data=run, branch_data=branch,
+                pad_props={"has_pad": True, "T_pad": 10.0, "D_pad": 400.0},
+                weld_legs={"inner": 6.0, "outer": 6.0},
+                fitting_type="REINFORCING PAD",
+            )
+            assert res["error"] is None
+            assert os.path.getsize(out) > 2000
+
     def test_report_meta_to_dict(self):
         meta = ReportMeta(project_name="P", doc_number="D", revision="2", prepared_by="A")
         d = meta.to_dict()

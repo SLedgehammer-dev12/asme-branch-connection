@@ -7,6 +7,13 @@ import streamlit as st
 import fitting_database as db
 import engine
 from ui.ui_utils import get_wt_options, parse_wt
+from units import (
+    UnitSystem,
+    temp_c_to_f,
+    temp_f_to_c,
+    length_mm_to_in,
+    length_in_to_mm,
+)
 
 PIPE_MATERIALS_DB = db.PIPE_MATERIALS_BY_STANDARD
 NPS_OD_MM = db.NPS_OD_MM
@@ -14,39 +21,60 @@ PIPE_DATA_FULL = db.PIPE_SCHEDULES
 
 
 
-def render_sidebar_inputs():
-    """Sidebar girdi bölümlerini render eder."""
+def render_sidebar_settings():
+    """Sidebar: global proje ayarları (birim sistemi) ve kısa yönlendirme."""
     logo_path = "assets/app_icon.png" if os.path.exists("assets/app_icon.png") else "assets/tee.svg"
     if os.path.exists(logo_path):
         st.image(logo_path, caption="ASME B31.8 Pipeline Engineering", use_container_width=True)
 
-    st.header("1. Operasyon ve Dizayn")
-
-    # Faz 3: Birim sistemi (Metric / Imperial)
+    st.header("⚙️ Proje Ayarları")
     unit_system = st.radio(
         "Birim Sistemi (Unit System)",
         ["metric", "imperial"],
         index=0,
         format_func=lambda x: "Metric (mm, MPa, °C)" if x == "metric" else "Imperial (in, psi, °F)",
-        help="Tüm girdi/çıktılar seçilen birim sistemine göre dönüştürülür.",
+        help="Girdi ve sonuçlar seçilen birim sistemine göre dönüştürülür (motor daima metric hesaplar).",
     )
     st.session_state["unit_system"] = unit_system
+    st.caption("Teknik parametreler ana ekrandaki **Proje Parametreleri** bölümündedir.")
 
-    design_temp = st.number_input(
-        "Tasarım sıcaklığı (°C)",
-        value=20.0,
-        step=5.0,
-        help="Minimum metal sıcaklığı (MDMT) ve maksimum işletme sıcaklığı",
-    )
+
+def render_technical_inputs():
+    """Ana ekran: teknik girdiler (operasyon, faktörler, tolerans, Hot Tap)."""
+    us = UnitSystem(st.session_state.get("unit_system", "metric"))
+    st.header("1. Operasyon ve Dizayn")
+
+    if us.is_metric:
+        design_temp = st.number_input(
+            "Tasarım sıcaklığı (°C)",
+            value=20.0,
+            step=5.0,
+            help="Minimum metal sıcaklığı (MDMT) ve maksimum işletme sıcaklığı",
+        )
+    else:
+        _design_temp_f = st.number_input(
+            "Tasarım sıcaklığı (°F)",
+            value=round(temp_c_to_f(20.0), 1),
+            step=10.0,
+            help="Girilen °F değeri motorda °C'ye çevrilir.",
+        )
+        design_temp = temp_f_to_c(_design_temp_f)
+
     op_type = st.radio(
         "İşlem tipi",
         ["New Construction", "Hot Tap"],
         help="Yeni imalat mı yoksa basınçlı canlı hat (Hot Tap) mı?",
     )
 
-    c1, c2 = st.columns([2, 1])
-    P_val = c1.number_input("Basınç", value=70.0, step=1.0)
-    P_unit = c2.selectbox("Birim", ["Barg", "MPa", "PSI", "Bara"])
+    if us.is_metric:
+        c1, c2 = st.columns([2, 1])
+        P_val = c1.number_input("Basınç", value=70.0, step=1.0)
+        P_unit = c2.selectbox("Birim", ["Barg", "MPa", "PSI", "Bara"])
+    else:
+        # Imperial: psi-g cinsinden giriş; motora PSI birimi ile aktarılır
+        P_val = st.number_input("Basınç (psi-g)", value=1015.0, step=10.0)
+        P_unit = "PSI"
+        st.caption("Basınç psi-g olarak girilir; hesaplarda MPa'ya çevrilir.")
 
     st.divider()
     st.subheader("2. ASME B31.8 Faktörleri")
@@ -85,8 +113,13 @@ def render_sidebar_inputs():
     st.subheader("3. Tolerans ve Güvenlik")
 
     c_ca, c_ang = st.columns(2)
-    CA_mm = c_ca.number_input("Korozyon Payı (mm)", value=1.5, min_value=0.0, step=0.1)
-    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=30.0, max_value=90.0, step=5.0, help="ASME B31.8 831.4.1(b): β < 45° için FEA doğrulaması önerilir")
+    if us.is_metric:
+        CA_mm = c_ca.number_input("Korozyon Payı (mm)", value=1.5, min_value=0.0, step=0.1)
+    else:
+        CA_mm = length_in_to_mm(
+            c_ca.number_input("Korozyon Payı (in)", value=0.06, min_value=0.0, step=0.01)
+        )
+    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=30.0, max_value=90.0, step=5.0, help="ASME B31.8 Para 831.4.1(l): β < 85° bireysel mühendislik çalışması gerektirir; β < 45° için FEA doğrulaması önerilir (repo yorumu).")
 
     c_tol, c_basis = st.columns(2)
     mill_tol_percent = c_tol.number_input("Hadde Toleransı (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L Spec standardı %12.5")
@@ -237,8 +270,19 @@ def render_pipe_inputs():
             branch_data["WT_mm"] = b_wt_manual
             branch_data["NPS"] = f"Manuel {b_od_manual:.1f}mm"
 
-    st.caption(f"Analiz edilecek ana hat: {run_data['OD_mm']} x {run_data['WT_mm']} mm")
-    st.caption(f"Analiz edilecek branşman: {branch_data['OD_mm']} x {branch_data['WT_mm']} mm")
+    _us = UnitSystem(st.session_state.get("unit_system", "metric"))
+    if _us.is_metric:
+        st.caption(f"Analiz edilecek ana hat: {run_data['OD_mm']} x {run_data['WT_mm']} mm")
+        st.caption(f"Analiz edilecek branşman: {branch_data['OD_mm']} x {branch_data['WT_mm']} mm")
+    else:
+        st.caption(
+            f"Analiz edilecek ana hat: {run_data['OD_mm']} x {run_data['WT_mm']} mm "
+            f"({length_mm_to_in(run_data['OD_mm']):.2f} x {length_mm_to_in(run_data['WT_mm']):.3f} in)"
+        )
+        st.caption(
+            f"Analiz edilecek branşman: {branch_data['OD_mm']} x {branch_data['WT_mm']} mm "
+            f"({length_mm_to_in(branch_data['OD_mm']):.2f} x {length_mm_to_in(branch_data['WT_mm']):.3f} in)"
+        )
     if use_manual:
         st.caption(f"Nominal-equivalent Run NPS: {db.describe_nominal_equivalent_nps(run_data['NPS'])}")
         st.caption(f"Nominal-equivalent Branch NPS: {db.describe_nominal_equivalent_nps(branch_data['NPS'])}")

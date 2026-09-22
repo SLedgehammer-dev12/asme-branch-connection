@@ -56,8 +56,6 @@ def main():
         "--server.headless", "true",
         "--browser.gatherUsageStats", "false",
         "--server.address", "localhost",
-        "--theme.primaryColor", "#4CAF50",
-        "--theme.base", "light",
         "--global.developmentMode", "false"
     ]
 

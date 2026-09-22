@@ -141,6 +141,48 @@ def create_cross_section_figure(
     ))
 
     # -------------------------------------------------------------
+    # 1b. FITTING GÖVDESİ (OLET / SOCKOLET / WELDING TEE) — 2D kesit profili
+    # -------------------------------------------------------------
+    _ft = (fitting_type or "").upper()
+    _is_weldolet = "WELDOLET" in _ft
+    _is_sockolet = "SOCKOLET" in _ft
+    _is_welding_tee = ("WELDING TEE" in _ft) or ("FACTORY TEE" in _ft)
+    _is_olet = _is_weldolet or _is_sockolet or ("OLET" in _ft)
+    if _is_olet or _is_welding_tee:
+        if _is_welding_tee:
+            h_body = max(r_b_out * 0.9, 20.0)
+            r_base, r_top = r_b_out * 1.5, r_b_out
+            body_label = "Welding Tee Boynu (B16.9)"
+        elif _is_weldolet:
+            h_body = max(r_b_out * 1.3, 30.0)
+            r_base, r_top = r_b_out * 1.3, r_b_out * 0.9
+            body_label = "Weldolet Gövdesi (MSS SP-97)"
+        elif _is_sockolet:
+            h_body = max(r_b_out * 0.55, 14.0)
+            r_base, r_top = r_b_out * 1.5, r_b_out * 1.05
+            body_label = "Sockolet Gövdesi (MSS SP-97)"
+        else:
+            h_body = max(r_b_out * 1.1, 24.0)
+            r_base, r_top = r_b_out * 1.3, r_b_out * 0.95
+            body_label = "Olet Gövdesi (MSS SP-97)"
+        _perp = (-sin_beta, cos_beta)
+        _B = (0.0, 0.0)
+        _T = (h_body * cos_beta, h_body * sin_beta)
+        bl = (_B[0] - r_base * _perp[0], _B[1] - r_base * _perp[1])
+        br = (_B[0] + r_base * _perp[0], _B[1] + r_base * _perp[1])
+        tl = (_T[0] - r_top * _perp[0], _T[1] - r_top * _perp[1])
+        tr = (_T[0] + r_top * _perp[0], _T[1] + r_top * _perp[1])
+        fig.add_trace(go.Scatter(
+            x=[bl[0], tl[0], tr[0], br[0], bl[0]],
+            y=[bl[1], tl[1], tr[1], br[1], bl[1]],
+            fill="toself", fillcolor="rgba(180, 83, 9, 0.85)",
+            line=dict(color="#92400E", width=2),
+            name=body_label,
+            hoverinfo="text",
+            hovertext=f"{body_label}: 2D kesit profili (şematik; üretici boyutları ile doğrulanmalıdır)",
+        ))
+
+    # -------------------------------------------------------------
     # 2. BRANŞMAN BORUSU (BRANCH PIPE) - AÇILI VEYA DİKEY
     # -------------------------------------------------------------
     # Branşman eksenel vektörleri
@@ -375,6 +417,40 @@ def create_cross_section_figure(
     # -------------------------------------------------------------
     # 4. CAD TEKNİK ÖLÇÜLENDİRME ÇİZGİLERİ (DIMENSION CALLOUTS)
     # -------------------------------------------------------------
+    def _dim_line(x0, y0, x1, y1, text, color="#0F172A"):
+        fig.add_trace(go.Scatter(
+            x=[x0, x1], y=[y0, y1],
+            mode="lines+text",
+            line=dict(color=color, width=1.6),
+            text=["", text],
+            textposition="middle right",
+            name=text,
+            showlegend=False,
+            hoverinfo="text",
+            hovertext=text,
+        ))
+
+    # Ana hat et kalınlığı (WT_h) — sol tarafta düşey ölçü oku
+    _x_wt = -0.75 * r_h_out
+    _y_top_h = y_center_h + math.sqrt(max(0.0, r_h_out**2 - _x_wt**2))
+    _dim_line(_x_wt, _y_top_h - wt_h_net, _x_wt, _y_top_h,
+              f"WT_h = {wt_h_net:.2f} mm", "#1D4ED8")
+
+    # Branşman et kalınlığı (WT_b) — eksene dik ölçü oku (branşman kökü)
+    _perp_b = (-sin_beta, cos_beta)
+    _p_in = (x_b_li_bot, y_b_li_bot)
+    _p_out = (_p_in[0] + wt_b_net * _perp_b[0], _p_in[1] + wt_b_net * _perp_b[1])
+    _dim_line(_p_in[0], _p_in[1], _p_out[0], _p_out[1],
+              f"WT_b = {wt_b_net:.2f} mm", "#15803D")
+
+    # Pad / manşon kalınlığı (T_p) — düşey ölçü oku
+    if has_pad and t_pad > 0:
+        _x_tp = 0.35 * (d_pad / 2.0)
+        _y_base = y_center_h + math.sqrt(max(0.0, r_h_out**2 - _x_tp**2))
+        _y_top = y_center_h + math.sqrt(max(0.0, (r_h_out + t_pad)**2 - _x_tp**2))
+        _dim_line(_x_tp, _y_base, _x_tp, _y_top,
+                  f"T_p = {t_pad:.2f} mm", "#C2410C")
+
     # Eksen Çizgisi (Centerline - Kırmızı Çizgili)
     fig.add_trace(go.Scatter(
         x=[0, branch_height * 1.1 * cos_beta],

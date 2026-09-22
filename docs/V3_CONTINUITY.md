@@ -347,6 +347,39 @@ Acik kalanlar:
 Bir sonraki adim:
 - `git tag v3.6.1` + push → `release.yml` Windows + macOS paketlerini uretip release yayinlar.
 
+### 2026-09-22 (5) - v3.7.0: tema, normatif duzeltmeler, UI butunlugu, 2D CAD/rapor gorselleri
+
+Yapilanlar (Faz A-D):
+- **A - Tema:** `ui/theme.py` (Açık/Koyu/Sistem + vurgu rengi, merkezî CSS), `.streamlit/config.toml`; `launcher.py` sabit tema argumanlari kaldirildi; eksik `rec-card`/`highlight-box` CSS siniflari tanimlandi.
+- **B - Normatif/hesap:**
+  - Fig. I-1.1-3 Note (1): tam kuşatma altinda boru metali takviye sayilmaz → `evaluate_complete_encirclement_reinforcement(count_pipe_metal=False)` ile **A1 = 0** (analyze/propose parite).
+  - Manşon efektif uzunlugu: fiziksel acikli `opening = max(d, branşman OD)`.
+  - Kloz referanslari: `ASME_CLAUSE_REFERENCES` + `DECISION_MATRIX_RULES` gercek 831.4.2 lettering'ine gore duzeltildi (uydurma basliklar kaldirildi).
+  - Para 831.4.1(l): β < 85° icin "bireysel muhendislik calismasi + yeterli takviye" uyarisi; β < 45° FEA (repo yorumu) etiketi; ClauseTrace/Final_Action guncellendi.
+  - MSS SP-97 d/D > 0.5: muafiyet otomatik onaylanmaz → `is_exempt=False`, "ek muhendislik degerlendirmesi gerekli".
+  - `_AREA_METHOD_NOTES` guncellendi (A1=0 gerekcesi, OD bazli efektif uzunluk).
+- **C - UI butunlugu:**
+  - C1: analiz sonrasi `step=3`; step-3 temiz sonuc/rapor ekrani (girdi formu gizli) + "Yapilandirmayi Duzenle".
+  - C2: HTML+PDF icin **tek raporlama metadata karti** (proje/dokuman/rev/hazirlayan/kontrol/onay).
+  - C3: manuel guncelleme kontrolunde `st.toast` (yeni surum / guncel / hata).
+  - C4: gercek birim sistemi: imperial'de basinc (psi), sicaklik (°F), korozyon payi (in) cevrilir; sonuc metrikleri in/in² gosterilir; `units.py` alan donusumleri eklendi.
+  - C5: teknik girdiler ana ekrana ("Proje Parametreleri" expander) tasindi; sidebar = proje ayarlari + veri/logbook + tema + guncelleme.
+- **D - CAD/rapor:**
+  - D1: 2D kesite weldolet/sockolet/welding tee profilleri + `WT_h`/`WT_b`/`T_p` olcu oklari.
+  - D2: `cad_svg.py` (harici bagimliliksiz sematik geometri) → HTML raporuna inline **SVG**, PDF'e ReportLab **vektor** cizim; kaleido kullanilmadi (EXE boyutu).
+  - `analyze()` ciktisina `selected_fitting_type` eklendi.
+
+Dogrulama:
+- `python -m pytest tests/ -q`: **382/382 PASSED** (+4 cad_svg, +1 PDF sema, +B regresyonlari).
+- AppTest smoke: tema (dark), imperial, tam akis (step 1→2→3), rapor uretimi, exception yok.
+- HTML'de `<svg>` gomulu; PDF sema uretimi hatasiz.
+
+Acik kalanlar:
+- EXE/paket yeniden derlenmeli ve `v3.7.0` tag ile release tetiklenmeli.
+
+Bir sonraki adim:
+- Faz E (mimari): HTML raporunu motordan ayirma + i18n (v3.8.0).
+
 ## Update Template
 
 Yeni oturum sonunda asagidaki format kullanilabilir:

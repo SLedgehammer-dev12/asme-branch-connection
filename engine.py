@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import fitting_database as db
 from version import __version_label__
+from cad_svg import schematic_geometry, to_svg
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDOLET / PAD / SADDLE",
                 "Priority": "Primary",
-                "Desc": "Stres > %50, d/D <= %25. Pad/Saddle veya Weldolet tipi takviye uyumludur. Ref: 831.4.2(d)(i)(j)",
+                "Desc": "Stres > %50, d/D <= %25. Pad/Saddle veya Weldolet tipi takviye uyumludur. Ref: 831.4.1, 831.4.2(d), 831.4.2(i)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(c) - High Stress Branch Connections",
-            "831.4.2(d) - Small Diameter Branch Connections",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(c) - Tam Kuşatma Takviye Elemanı",
+            "831.4.2(d) - Küçük Çaplı Branş (Takviye Hesabı Gerekmez)",
         ],
         "Assumptions": [
             "Kaynak kalitesi QW-482'ye uygunluk sağlanmalı",
@@ -59,13 +60,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDING TEE / PAD / SADDLE / WELDOLET",
                 "Priority": "Primary",
-                "Desc": "Stres > %50, d/D 25-50%. Takviye tee veya pad/saddle kullanımı uygundur. Ref: 831.4.2(i)(j)",
+                "Desc": "Stres > %50, d/D 25-50%. Takviye tee veya pad/saddle kullanımı uygundur. Ref: 831.4.1, 831.4.2(i)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(c) - High Stress Branch Connections",
-            "831.4.2(i) - Medium Diameter Branch Connections",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(c) - Tam Kuşatma Takviye Elemanı",
+            "831.4.2(i) - Herhangi Bir Takviye Tipi (831.4.1'e Uygun)",
         ],
         "Assumptions": [
             "Welding Tee fabrika ürünü olabilir",
@@ -87,14 +88,14 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FULL ENCIRCLEMENT SPLIT TEE",
                 "Priority": "Mandatory",
-                "Desc": "Stres > %50 ve d/D > %50 için Hot Tap uygulamasında complete encirclement gereklidir. Ref: 831.4.2(a)/(e)/(j)",
+                "Desc": "Stres > %50 ve d/D > %50 için Hot Tap uygulamasında complete encirclement gereklidir. Ref: 831.4.1, 831.4.2(c), 831.4.2(j)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(a) - High Stress, Large Diameter Branch Connection",
-            "831.4.2(e) - Welding Details / Complete Encirclement",
-            "831.4.2(j) - Hot Tap/Plugging Tee Special Requirements",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(a) - Proven Design Dövme Çelik Tee (Muafiyet)",
+            "831.4.2(e) - Kaynak Detayları (Appendix I)",
+            "831.4.2(j) - Hot Tap / Plugging Tee Tipi Fittings",
         ],
         "Assumptions": [
             "Hot Tap operasyonu sertifikalanmış teknisyen tarafından yapılmalı",
@@ -116,18 +117,18 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FACTORY WELDING TEE (B16.9)",
                 "Priority": "Primary",
-                "Desc": "Stres > %50 ve d/D > %50. Smoothly contoured factory tee tercih edilir; localized pad/saddle uygun değildir. Ref: 831.4.2(a)/(e)/(f)",
+                "Desc": "Stres > %50 ve d/D > %50. Smoothly contoured factory tee tercih edilir; localized pad/saddle uygun değildir. Ref: 831.4.1, 831.4.2(a), 831.4.2(c)",
             },
             {
                 "Type": "FULL ENCIRCLEMENT SLEEVE/TEE",
                 "Priority": "Alternative",
-                "Desc": "Fabrika tee mümkün değilse complete encirclement uygulanmalı. Ref: 831.4.2(a)/(e)",
+                "Desc": "Fabrika tee mümkün değilse complete encirclement uygulanmalı. Ref: 831.4.1, 831.4.2(a), 831.4.2(c)",
             },
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(a) - High Stress, Large Diameter Branch Connections",
-            "831.4.2(f) - Encirclement Member End Tapering",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(a) - Proven Design Dövme Çelik Tee (Muafiyet)",
+            "831.4.2(c) - Tam Kuşatma Takviye Elemanı",
         ],
         "Assumptions": [
             "B16.9 Welding Tee ASME B16.9 standartına uyumlu olmalı",
@@ -148,13 +149,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDOLET / PAD / FABRICATED BRANCH",
                 "Priority": "Primary",
-                "Desc": "Stres 20-50% ve d/D <= %25. Tüm standart takviyeli tipler uygundur. Ref: 831.4.2(d)(e)",
+                "Desc": "Stres 20-50% ve d/D <= %25. Tüm standart takviyeli tipler uygundur. Ref: 831.4.1, 831.4.2(d), 831.4.2(i)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(b) - Moderate Stress Branch Connections",
-            "831.4.2(d) - Small Diameter Branch Connections",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(b) - Proven Design Tee (Orta Stres)",
+            "831.4.2(d) - Küçük Çaplı Branş (Takviye Hesabı Gerekmez)",
         ],
         "Assumptions": [
             "Orta stres seviyesinde çeşitli fitting seçenekleri geçerli",
@@ -175,13 +176,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDING TEE / PAD / WELDOLET",
                 "Priority": "Primary",
-                "Desc": "Stres 20-50% ve d/D 25-50%. Tüm takviyeli tipler geçerlidir. Ref: 831.4.2(i)",
+                "Desc": "Stres 20-50% ve d/D 25-50%. Tüm takviyeli tipler geçerlidir. Ref: 831.4.1, 831.4.2(i)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(b) - Moderate Stress Branch Connections",
-            "831.4.2(i) - Medium Diameter Branch Connections",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(b) - Proven Design Tee (Orta Stres)",
+            "831.4.2(i) - Herhangi Bir Takviye Tipi (831.4.1'e Uygun)",
         ],
         "Assumptions": [
             "Orta-büyük branş çapında çeşitli seçenekler mevcuttur",
@@ -203,14 +204,14 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FULL ENCIRCLEMENT SPLIT TEE",
                 "Priority": "Recommended",
-                "Desc": "Stres 20-50% ve d/D > %50 için Hot Tap'te complete encirclement önerilir. Ref: 831.4.2(h)/(i)/(j)",
+                "Desc": "Stres 20-50% ve d/D > %50 için Hot Tap'te complete encirclement önerilir. Ref: 831.4.1, 831.4.2(h), 831.4.2(j)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(h) - Large Diameter, Moderate Stress Branch Connection",
-            "831.4.2(i) - Any Type Meeting 831.4.1",
-            "831.4.2(j) - Hot Tap/Plugging Tee Special Requirements",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(h) - Takviye Elemanı Gerektiğinde (Büyük Çap / Orta Stres)",
+            "831.4.2(i) - Herhangi Bir Takviye Tipi (831.4.1'e Uygun)",
+            "831.4.2(j) - Hot Tap / Plugging Tee Tipi Fittings",
         ],
         "Assumptions": [
             "Orta stres'te Hot Tap güvenli şekilde yapılabilir",
@@ -231,13 +232,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDING TEE / PAD / SADDLE / WELDOLET",
                 "Priority": "Primary",
-                "Desc": "Stres 20-50% ve d/D > %50. Complete encirclement veya tee seçenekleri değerlendirilmeli. Ref: 831.4.2(h)/(i)",
+                "Desc": "Stres 20-50% ve d/D > %50. Complete encirclement veya tee seçenekleri değerlendirilmeli. Ref: 831.4.1, 831.4.2(h), 831.4.2(i)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(b) - Moderate Stress Branch Connections",
-            "831.4.2(i) - Large Diameter Branch Connections (Moderate Stress)",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(b) - Proven Design Tee (Orta Stres)",
+            "831.4.2(i) - Herhangi Bir Takviye Tipi (831.4.1'e Uygun)",
         ],
         "Assumptions": [
             "Orta stres ve büyük çapda tasarım seçenekleri geniştir",
@@ -258,13 +259,13 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FABRICATED BRANCH / OLET / TEE",
                 "Priority": "Primary",
-                "Desc": "Stres <= %20. Bağlantı tipi üzerinde minimum kısıtlama vardır; 831.4.1 takviye kurallarına uyulmalıdır.",
+                "Desc": "Stres <= %20. Bağlantı tipi üzerinde minimum kısıtlama vardır; 831.4.1 takviye kurallarına uyulmalıdır. Ref: 831.4.1, 831.4.2(g)",
             }
         ],
         "ClauseTrace": [
-            "831.4.1 - Classification of Branch Connections",
-            "831.4.2(a) - Low Stress Branch Connections",
-            "831.4.2(a) - Fabricated Branch Allowance",
+            "831.4.1 - Kaynaklı Branş Takviyesi (Alan Telafisi)",
+            "831.4.2(g) - Takviyenin Zorunlu Olmadığı Durumlar",
+            "831.4.2(g) - Takviyenin Zorunlu Olmadığı Durumlar",
         ],
         "Assumptions": [
             "Düşük stres seviyesinde maksimum ekonomi sağlanabilir",
@@ -314,10 +315,12 @@ def _match_decision_matrix_rule(stress_ratio: float, d_ratio: float, op_type: st
 
 
 _AREA_METHOD_NOTES = [
-    "A1 ana hat fazlalığı açıklık genişliği (d_opening) üzerinden, A2 branşman fazlalığı branşman zonu yüksekliği (2.5·t_b + T_s) üzerinden değerlendirilir (repo mühendislik yorumu).",
+    "A1 ana hat fazlalığı açıklık genişliği (d_opening) üzerinden, A2 branşman fazlalığı etkin takviye zonu yüksekliği L_eff = min(L₁, L₂) üzerinden değerlendirilir (repo mühendislik yorumu).",
+    "Tam kuşatma (split tee / full encirclement) yönteminde Fig. I-1.1-3 Note (1) gereği tee altındaki boru metali takviye sayılmaz → A1 = 0; yalnız manşon (A4) ve kaynak (A3) katkısı ile branşman cidarı fazlalığı (A2) sayılır.",
     "A2'ye uygulanan f_branch mukavemet azaltma faktörü muhafazakâr bir yaklaşımdır; eklenen takviye malzemesi mukavemet kuralı lisanslı ASME B31.8 kopyası ile doğrulanmalıdır.",
     "A3 kaynak alanı yalnızca köşe (fillet) kaynak bacak alanı (0.5·w²) olarak yaklaşık hesaplanır; tam penetrasyonlu kaynaklar ayrıca değerlendirilmelidir.",
     "Açılı (β<90°) bağlantılarda A_req ve d_opening sinβ ile düzeltilir; A2 branşman zonu branşman ekseni boyunca ölçüldüğünden ek sinβ düzeltmesi uygulanmaz.",
+    "Manşon efektif uzunluğunda fiziksel açıklık olarak branşman OD'si kullanılır (d'den büyük olan); bu muhafazakâr bir repo yaklaşımıdır.",
 ]
 
 
@@ -1647,6 +1650,8 @@ def propose_fitting_dimensions(
             f_branch=terms["f_branch"],
             f_sleeve=terms["f_sleeve"],
             weld_area_mm2=terms["A3"],
+            count_pipe_metal=False,
+            opening_od_mm=branch.get("OD_mm", 0.0),
         )
         eff_len = max(0.0, min(zone_length, zone_length) - d_hole)  # = d_hole
         T_from_area = (
@@ -1898,6 +1903,7 @@ class PipelineExpertEngine:
         )
         beta_deg = terms["beta_deg"]
         beta_fea_warning = self.branch_angle_deg < 45.0
+        beta_weakening_warning = 45.0 <= self.branch_angle_deg < 85.0
         d_opening = terms["d_opening"]
         A_req = terms["A_req"]
         if self.branch_angle_deg < 90.0:
@@ -1909,9 +1915,18 @@ class PipelineExpertEngine:
                 self._add_message(
                     "error",
                     f"CRITICAL ENGINEERING WARNING: Branşman açısı β = {self.branch_angle_deg}° < 45° olduğundan, "
-                    "birleşim noktasındaki yüksek gerilme konsantrasyonu nedeniyle ASME B31.8 Para 831.4.1(b) kapsamında "
-                    "basit alan telafisi yöntemi sınırlandırılır. Bu durum için Sonlu Elemanlar Analizi (FEA) veya özel "
-                    "takviyeli tasarım ile mühendis doğrulaması önerilir."
+                    "birleşim noktasındaki yüksek gerilme konsantrasyonu nedeniyle ASME B31.8 Para 831.4.1(l) kapsamında "
+                    "bu tasarım bireysel mühendislik çalışması (individual study) gerektirir. Basit alan telafisi tek "
+                    "başına yeterli görülmez; Sonlu Elemanlar Analizi (FEA) veya özel takviyeli tasarım ile doğrulama "
+                    "önerilir (FEA şartı: repo mühendislik yorumu)."
+                )
+            elif beta_weakening_warning:
+                self._add_message(
+                    "warning",
+                    f"ASME B31.8-2025 Para 831.4.1(l): Branşman açısı β = {self.branch_angle_deg}° < 85° olan bağlantılar, "
+                    "açı küçüldükçe ilerleyici biçimde zayıflar. Bu tasarım bireysel mühendislik çalışması (individual "
+                    "study) gerektirir ve yapının doğal zayıflığını telafi edecek yeterli takviye sağlanmalıdır "
+                    "(repo yorumu: artırılmış takviye bölgesi / ilave alan telafisi değerlendirilmelidir)."
                 )
 
         # Takviye Bölgesi Limitleri (L) — NOT: zon yaklaşımı repo mühendislik yorumudur;
@@ -2102,6 +2117,8 @@ class PipelineExpertEngine:
                 f_branch=f_branch,
                 f_sleeve=f_sleeve,
                 weld_area_mm2=A3,
+                count_pipe_metal=False,
+                opening_od_mm=branch.get("OD_mm", 0.0),
             )
             A1 = complete_encirclement["A1"]
             A2 = complete_encirclement["A2"]
@@ -2136,26 +2153,43 @@ class PipelineExpertEngine:
             Need_Reinf = Missing_Area > 0
 
         # --- Standart ürün muafiyeti (yalnızca üretici kalifiye ürünler) ---
+        # Para 831.4.2(k): MSS SP-97 olet/sockolet yalnızca koşu borusunun yarısına
+        # kadar muaf sayılır; bu sınır aşılırsa muafiyet otomatik uygulanmaz.
+        olet_over_half_run = bool(
+            ("OLET" in ftype_upper or "SOCKOLET" in ftype_upper)
+            and run.get("OD_mm", 0) > 0
+            and branch.get("OD_mm", 0) > 0.5 * run["OD_mm"]
+        )
         is_exempt = False
         if (not is_sleeve_type) and selected_fitting_type and any(
             k in ftype_upper for k in ["TEE", "OLET", "SOCKOLET"]
         ):
-            is_exempt = True
-            Need_Reinf = False
-            Missing_Area = 0.0
-            if "OLET" in ftype_upper or "SOCKOLET" in ftype_upper:
+            if olet_over_half_run:
+                # Muafiyet düşürülür: alan telafisi sonuçları korunur
+                is_exempt = False
                 self._add_message(
-                    "info",
-                    f"Seçilen donanım tipi ({selected_fitting_type}) MSS SP-97 integral takviyeli (integrally reinforced) "
-                    "üründür; üretici hesaplama/proof testi açıklığı tam takviye eder (ASME B31.8-2025 Para 831.4.2(k)). "
-                    "Koşu borusunun yarısından büyük outlet boyutları ek mühendislik değerlendirmesi gerektirir.",
+                    "warning",
+                    f"MSS SP-97 outlet boyutu ({branch.get('OD_mm', 0):.1f} mm), koşu borusunun yarısını "
+                    f"({0.5 * run['OD_mm']:.1f} mm) aşıyor. ASME B31.8-2025 Para 831.4.2(k) muafiyeti bu boyut "
+                    "için otomatik uygulanmaz; EK MÜHENDİSLİK DEĞERLENDİRMESİ GEREKLİDİR. Alan telafisi "
+                    "sonuçları bilgilendirme amaçlıdır ve mühendis onayı zorunludur.",
                 )
             else:
-                self._add_message(
-                    "info",
-                    f"Seçilen donanım tipi ({selected_fitting_type}) ASME B31.8-2025 Para 831.4.2(a)/(b) kapsamında "
-                    "'smoothly contoured wrought steel tee of proven design' kabul edilir; ilave alan telafisi aranmaz.",
-                )
+                is_exempt = True
+                Need_Reinf = False
+                Missing_Area = 0.0
+                if "OLET" in ftype_upper or "SOCKOLET" in ftype_upper:
+                    self._add_message(
+                        "info",
+                        f"Seçilen donanım tipi ({selected_fitting_type}) MSS SP-97 integral takviyeli (integrally reinforced) "
+                        "üründür; üretici hesaplama/proof testi açıklığı tam takviye eder (ASME B31.8-2025 Para 831.4.2(k)).",
+                    )
+                else:
+                    self._add_message(
+                        "info",
+                        f"Seçilen donanım tipi ({selected_fitting_type}) ASME B31.8-2025 Para 831.4.2(a)/(b) kapsamında "
+                        "'smoothly contoured wrought steel tee of proven design' kabul edilir; ilave alan telafisi aranmaz.",
+                    )
 
         # --- ASME B31.8-2025 Para 831.4.2(d): <= NPS 2 (DN 50) takviye hesabı gerekmez ---
         branch_nps_num = _nps_to_number(branch.get("NPS", ""))
@@ -2165,16 +2199,6 @@ class PipelineExpertEngine:
                 "ASME B31.8-2025 Para 831.4.2(d): NPS 2 (DN 50) ve daha küçük branş açıklıklarında takviye hesabı "
                 "gerekmez; yine de vibrasyon ve diğer yükler için uygun takviye sağlanmalıdır.",
             )
-
-        # --- ASME B31.8-2025 Para 831.4.2(k): MSS SP-97 olet koşu/2 sınırı (uyarı) ---
-        if ("OLET" in ftype_upper or "SOCKOLET" in ftype_upper) and run.get("OD_mm", 0) > 0:
-            if branch.get("OD_mm", 0) > 0.5 * run["OD_mm"]:
-                self._add_message(
-                    "warning",
-                    f"MSS SP-97 outlet boyutu ({branch.get('OD_mm', 0):.1f} mm), koşu borusunun yarısını "
-                    f"({0.5 * run['OD_mm']:.1f} mm) aşıyor. ASME B31.8-2025 Para 831.4.2(k): ek mühendislik "
-                    "değerlendirmesi (additional engineering assessment) gereklidir.",
-                )
 
         # Takviyesiz fabricated branch geometrik limit kontrolü
         if selected_fitting_type and "FABRICATED" in selected_fitting_type.upper() and not self.pad_props.get("has_pad"):
@@ -2287,13 +2311,14 @@ class PipelineExpertEngine:
             })
             area_components = [
                 {"code": "A1", "label": "Ana hat artı alanı", "value": ce.get("A1"),
-                 "formula": f"A1 = (wt_h_net − t_h) × d = ({wt_h_net:.2f} − {t_req_h:.2f}) × {d_hole:.2f} = {ce.get('A1'):.2f} mm²"},
+                 "formula": "A1 = 0.00 mm² (Fig. I-1.1-3 Note 1: tam kuşatma altında boru metali takviye sayılmaz)",
+                 "note": "Basınç tee altındaki boru metaline iki taraftan etkir."},
                 {"code": "A2", "label": "Branşman artı alanı", "value": ce.get("A2"),
                  "formula": f"A2 = 2 × (wt_b_net − t_b) × L_zone × f_branch = 2 × ({wt_b_net:.2f} − {t_req_b:.2f}) × {ce.get('L_zone_mm')} × {f_branch:.3f} = {ce.get('A2'):.2f} mm²"},
                 {"code": "A3", "label": "Kaynak alanı", "value": ce.get("A3"),
                  "formula": f"A3 = köşe kaynak dikişleri kesit alanı = {ce.get('A3'):.2f} mm²"},
                 {"code": "A4", "label": "Manşon takviye alanı", "value": ce.get("A4"),
-                 "formula": f"A4 = t_sleeve × (min(L_s, 2d) − d) × f_sleeve = {pad_T:.2f} × {ce.get('member_length_effective_mm')} × {f_sleeve:.3f} = {ce.get('A4'):.2f} mm²"},
+                 "formula": f"A4 = t_sleeve × (min(L_s, 2d) − açıklık) × f_sleeve = {pad_T:.2f} × {ce.get('member_length_effective_mm')} × {f_sleeve:.3f} = {ce.get('A4'):.2f} mm² (açıklık = {ce.get('opening_mm')} mm)"},
             ]
         else:
             w_i = terms["w_inner"]
@@ -2364,6 +2389,7 @@ class PipelineExpertEngine:
             "Missing": Missing_Area,
             "Need_Reinf": Need_Reinf,
             "is_exempt": is_exempt,
+            "selected_fitting_type": selected_fitting_type,
             "Stress_Ratio": stress_ratio,
             "d_ratio": d_ratio,
             "mill_tol_percent": self.mill_tol_percent,
@@ -2386,12 +2412,16 @@ class PipelineExpertEngine:
             "Recommendations": dm_res["Recommendations"],
             "messages": self.messages,
             "ClauseTrace": list(dm_res.get("ClauseTrace", []))
-            + ([{"type": "clause", "ref": "Para 831.4.1(b)", "note": "β < 45° durumunda basit alan telafisi yöntemi sınırlandırılır; FEA veya özel takviyeli tasarım ile doğrulama önerilir."}] if beta_fea_warning else []),
+            + ([{"type": "clause", "ref": "Para 831.4.1(l)", "note": "β < 45°: bağlantı bireysel mühendislik çalışması gerektirir; FEA veya özel takviyeli tasarım ile doğrulama önerilir (FEA şartı repo yorumudur)."}] if beta_fea_warning
+               else [{"type": "clause", "ref": "Para 831.4.1(l)", "note": "β < 85°: açı küçüldükçe bağlantı zayıflar; bireysel çalışma ve yeterli ilave takviye gerekir."}] if beta_weakening_warning
+               else []),
             "Assumptions": list(dm_res.get("Assumptions", [])) + _AREA_METHOD_NOTES,
             "Final_Action": (
                 "Branşman açısı β < 45° olduğundan basit alan telafisi yeterli görülmez. Sonlu Elemanlar Analizi (FEA) "
                 "veya özel takviyeli tasarım ile mühendis doğrulaması gereklidir."
                 if beta_fea_warning
+                else "Branşman açısı β < 85° (Para 831.4.1(l)): bireysel mühendislik çalışması ve ilave takviye değerlendirmesi gereklidir."
+                if beta_weakening_warning
                 else "Verify manufacturer pressure rating, material certification, and installation details before final approval."
             ),
         }
@@ -2507,8 +2537,22 @@ class PipelineExpertEngine:
             if _ad.get("is_exempt") else ""
         )
 
+        # Teknik kesit şeması (SVG, bağımsız — rapora gömülür)
+        _schematic_svg = ""
+        try:
+            _geo = schematic_geometry(
+                run, branch, res,
+                pad_props=getattr(self, "pad_props", {}) or {},
+                weld_legs=getattr(self, "weld_legs", {}) or {},
+                fitting_type=res.get("selected_fitting_type"),
+            )
+            _schematic_svg = to_svg(_geo)
+        except Exception:
+            _schematic_svg = ""
+
         calc_html = f"""
         <h2>2. ASME B31.8 Basınç Dayanımı ve Alan Telafisi Analizi</h2>
+        {('<h3>2.0 Teknik Kesit Şeması</h3><div style="margin:8px 0;">' + _schematic_svg + '</div>') if _schematic_svg else ''}
 
         <h3>2.1 Barlow Basınç Et Kalınlığı Hesabı</h3>
         <div class="formula">t_req = (P × D) / (2 × S × F × E × T)</div>

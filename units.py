@@ -50,6 +50,14 @@ def length_in_to_mm(inch: float) -> float:
     return inch * MM_PER_IN
 
 
+def area_mm2_to_in2(mm2: float) -> float:
+    return mm2 / (MM_PER_IN ** 2)
+
+
+def area_in2_to_mm2(in2: float) -> float:
+    return in2 * (MM_PER_IN ** 2)
+
+
 def temp_c_to_f(c: float) -> float:
     return c * 9.0 / 5.0 + 32.0
 
@@ -66,6 +74,7 @@ class UnitSystem:
     LENGTH_UNIT = {METRIC: "mm", IMPERIAL: "in"}
     PRESSURE_UNIT = {METRIC: "MPa", IMPERIAL: "psi"}
     TEMP_UNIT = {METRIC: "°C", IMPERIAL: "°F"}
+    AREA_UNIT = {METRIC: "mm²", IMPERIAL: "in²"}
 
     def __init__(self, system: str = "metric"):
         self.system = system if system in (self.METRIC, self.IMPERIAL) else self.METRIC
@@ -77,6 +86,9 @@ class UnitSystem:
     def length(self, mm: float) -> float:
         return mm if self.is_metric else length_mm_to_in(mm)
 
+    def area(self, mm2: float) -> float:
+        return mm2 if self.is_metric else area_mm2_to_in2(mm2)
+
     def pressure(self, mpa: float) -> float:
         return mpa if self.is_metric else pressure_from_mpa(mpa, "PSI")
 
@@ -86,10 +98,20 @@ class UnitSystem:
     def length_label(self, value: float, mm: bool = True) -> str:
         return f"{self.length(value):.2f} {self.LENGTH_UNIT[self.system]}"
 
+    def area_label(self, mm2: float, digits: int = 2) -> str:
+        return f"{self.area(mm2):.{digits}f} {self.AREA_UNIT[self.system]}"
+
+    def pressure_label(self, mpa: float, digits: int = 3) -> str:
+        return f"{self.pressure(mpa):.{digits}f} {self.PRESSURE_UNIT[self.system]}"
+
+    def temp_label(self, c: float, digits: int = 1) -> str:
+        return f"{self.temp(c):.{digits}f} {self.TEMP_UNIT[self.system]}"
+
     def describe(self) -> Dict[str, str]:
         return {
             "system": self.system,
             "length_unit": self.LENGTH_UNIT[self.system],
             "pressure_unit": self.PRESSURE_UNIT[self.system],
             "temp_unit": self.TEMP_UNIT[self.system],
+            "area_unit": self.AREA_UNIT[self.system],
         }

@@ -6,65 +6,104 @@ import plotly.graph_objects as go
 from engine import DECISION_MATRIX_RULES
 
 
-# ASME B31.8 Kloz Referansları ve Açıklamaları
+# ASME B31.8-2025 Para 831.4 kloz referansları (numara + kısa mühendislik yorumu).
+# NOT: Standart metni kopyalanmaz; başlıklar kısa repo yorumudur ve lisanslı kopya ile doğrulanmalıdır.
 ASME_CLAUSE_REFERENCES = {
     "831.4.1": {
-        "title": "Branş Bağlantılarının Sınıflandırılması",
-        "description": "ASME B31.8 Table 831.4.2-1'de tanımlanmış branş tiplerine göre tasarım kriterleri belirlenir.",
+        "title": "Kaynaklı Branş Bağlantılarının Takviyesi (Alan Telafisi)",
+        "description": "Branş bağlantısı krep bölgesinde gerekli takviye alanı kuralı; alan telafisi yönteminin çekirdeği.",
         "requirements": [
-            "Branş öl çapı (D) ana boru çapı (d) ile ilişkili olmalı",
-            "Stres oranı ve çap oranı temel kategorileri belirler",
-        ]
+            "(b) Gerekli takviye: mevcut metal alanı ≥ gerekli alan (Appendix F Fig. F-2.1.5-1 ile birlikte)",
+            "(c) Gerekli alan A_R = d × t; d = bitmiş açıklığın koşu eksenine paralel uzunluğu ile branşman iç çapından büyük olanı",
+            "(d) Mevcut alan = ana hat fazlalığı + branşman fazlalığı + ilave takviye metali (kaynak dahil)",
+            "(e) Takviye bölgesi: uzunluk her iki yanda d; genişlik ana hat nominal cidarının 2.5 katı, en fazla branşman nominal cidarının 2.5 katı",
+            "(l) β < 85°: bağlantı açı azaldıkça zayıflar; bireysel mühendislik çalışması ve yeterli ilave takviye gerekir",
+        ],
     },
     "831.4.2(a)": {
-        "title": "Tam Çevre Branş Bağlantıları (≤0.5D)",
-        "description": "Branş çapı ana boru çapının %50'sinden küçük veya eşit olduğunda uygulanır.",
+        "title": "Proven Design Dövme Çelik Tee (Muafiyet)",
+        "description": "Proven design, düzgün profilli (smoothly contoured) dövme çelik tee'ler için ilave alan telafisi aranmaz.",
         "requirements": [
-            "Weldolet, Pad, Saddle veya Olet kullanılabilir",
-            "Kaynak kalitesi önemlidir",
-            "Malzeme uyumluluğu sağlanmalı",
-            "Yüksek stres bölgelerinde ek takviye gerekebilir",
-        ]
+            "Üretici kalifikasyonu / proof test dokümantasyonu sağlanmalı",
+            "Malzeme ve boyut standartları (ör. ASME B16.9) doğrulanmalı",
+        ],
     },
     "831.4.2(b)": {
-        "title": "Kısmi Çevre Branş Bağlantıları (0.5D < d/D ≤ 1.0)",
-        "description": "Branş çapı ana boru çapının %50'sinden fazla olduğunda uygulanır.",
+        "title": "Proven Design Tee — Orta Stres Uygulamaları",
+        "description": "Orta gerilme seviyelerinde proven design tee kullanımı; tasarım gereksinimlerini karşılaması şartıyla.",
         "requirements": [
-            "Fabrika ürünü Welding Tee (B16.9) önerilir",
-            "Full Encirclement Sleeve/Tee gerekli olabilir",
-            "Yüksek stres'te (>50%) takviye zorunlu",
-            "Hot Tap uygulamalarında Full Encirclement zorunlu",
-        ]
+            "Tasarım koşullarını karşıladığı kanıtlanmalı",
+            "Kaynak detayları Appendix I ile uyumlu olmalı",
+        ],
     },
     "831.4.2(c)": {
-        "title": "Yüksek Stres Bölgeleri (Hoop Stress > 50%)",
-        "description": "Hoop stres %50'yi aşan uygulamalar için ek tasarım kriterleri.",
+        "title": "Tam Kuşatma (Complete Encirclement) Takviye Elemanı",
+        "description": "Takviye elemanı tam kuşatma tipinde olabilir; tee altındaki boru metali takviye sayılmaz.",
         "requirements": [
-            "En yüksek kalite fabrika ürünleri kullanılmalı",
-            "Welding Tee veya Full Encirclement tercih edilir",
-            "Malzeme seçimi kritiktir (ASME B16.5 sınıflaması)",
-            "İnspeksiyon ve test gereklidir",
-        ]
+            "Appendix F alan yöntemi uygulanır",
+            "Fig. I-1.1-3 Note (1): tee altındaki boru metali takviye sağlamaz",
+        ],
     },
     "831.4.2(d)": {
-        "title": "Hot Tap Bağlantıları",
-        "description": "Açık hat üzerinde dinamik branş kurulması için özel tasarım.",
+        "title": "Küçük Çaplı Branşlar (Takviye Hesabı Gerekmez)",
+        "description": "NPS 2 (DN 50) ve daha küçük branş açıklıklarında alan telafisi hesabı gerekmez.",
         "requirements": [
-            "Full Encirclement Sleeve/Tee zorunlu",
-            "Sıcak tap makinesi operasyonu standartları uygulanmalı",
-            "Bölge şartlandırması (zoning) gerekli",
-            "Koruyucu kaplama uygulanabilir",
-        ]
+            "Vibrasyon ve diğer yükler için yine de uygun takviye sağlanmalıdır",
+            "Bu muafiyet yalnızca boyut koşuluna bağlıdır",
+        ],
     },
     "831.4.2(e)": {
-        "title": "Split Tee Uygulamaları (Hot Tap için)",
-        "description": "Hot Tap işleminde boru duvarını kesen bağlantı.",
+        "title": "Kaynak Detayları (Ana Hat / Branşman / Takviye)",
+        "description": "Ana hat, branşman ve takviye elemanını birleştiren tüm kaynakların detay gereksinimleri.",
         "requirements": [
-            "Ana boru üzerinde doğru pozisyon seçimi kritik",
-            "Maksimum branş çapı sınırlandırılmış",
-            "Yüksek stres bölgelerinde kullanılmaz",
-            "Özel tasarım ve denetim gerekli",
-        ]
+            "Kaynak detayları Mandatory Appendix I figürlerine uygun olmalı",
+            "Kaynak prosedürü (WPS/PQR) kalifiye olmalı",
+        ],
+    },
+    "831.4.2(f)": {
+        "title": "Bitmiş Açıklığın İç Kenarları",
+        "description": "Bitmiş açıklığın iç kenarlarının pah/bitirme gereksinimleri.",
+        "requirements": [
+            "İç kenarlar uygun şekilde pahlanmalı/bitirilmelidir",
+        ],
+    },
+    "831.4.2(g)": {
+        "title": "Takviyenin Zorunlu Olmadığı Durumlar",
+        "description": "Belirli koşullar sağlandığında açıklık takviyesi zorunlu değildir.",
+        "requirements": [
+            "Koşullar tasarım gereksinimleri ile birlikte değerlendirilmelidir",
+        ],
+    },
+    "831.4.2(h)": {
+        "title": "Takviye Elemanı Gerektiğinde (Büyük Çap / Orta Stres)",
+        "description": "Takviye elemanı gereken durumlarda tip seçimi ve tasarım koşulları.",
+        "requirements": [
+            "Takviye tipi 831.4.1 tasarım gereksinimlerini karşılamalı",
+            "Kaynak detayları Appendix I ile uyumlu olmalı",
+        ],
+    },
+    "831.4.2(i)": {
+        "title": "Herhangi Bir Takviye Tipi (831.4.1'e Uygun)",
+        "description": "831.4.1 tasarım gereksinimlerini karşılayan herhangi bir takviye tipi kullanılabilir.",
+        "requirements": [
+            "Alan telafisi ve kaynak detay koşulları sağlanmalı",
+        ],
+    },
+    "831.4.2(j)": {
+        "title": "Hot Tap / Plugging Tee Tipi Fittings",
+        "description": "Hot tap veya plugging fittings için tee tipi konfigürasyon ve uç kaynak tasarımı özel gereksinimleri.",
+        "requirements": [
+            "Basınçlı hot tap tee manşonu uç fillet kaynağı Fig. I-1.1-4 ile boyutlandırılır",
+            "Uç yüz kalınlığı ve pah koşulları sağlanmalı",
+        ],
+    },
+    "831.4.2(k)": {
+        "title": "MSS SP-97 Fittings — Koşu Borusunun Yarısına Kadar",
+        "description": "MSS SP-97 integral takviyeli fittings, koşu borusunun yarısına kadar (d/D ≤ 0.5) kullanılabilir.",
+        "requirements": [
+            "d/D > 0.5 durumunda muafiyet otomatik uygulanmaz; ek mühendislik değerlendirmesi gerekir",
+            "Üretici kalifikasyonu sağlanmalı",
+        ],
     },
 }
 

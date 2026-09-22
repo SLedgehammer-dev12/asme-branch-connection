@@ -76,8 +76,8 @@ class TestAcuteAngleBranch:
             m.get("level") == "error" and "FEA" in m.get("text", "")
             for m in res["messages"]
         )
-        # Clause trace'e Para 831.4.1(b) eklenmelidir
-        assert any("831.4.1(b)" in t.get("ref", "") for t in res["ClauseTrace"])
+        # Clause trace'e Para 831.4.1(l) eklenmelidir (β < 85° kuralı)
+        assert any("831.4.1(l)" in t.get("ref", "") for t in res["ClauseTrace"])
         # Final_Action FEA doğrulaması talep etmelidir
         assert "FEA" in res["Final_Action"]
 

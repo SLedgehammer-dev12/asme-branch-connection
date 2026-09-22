@@ -12,10 +12,11 @@ from version import APP_TITLE, APP_NAME, __version_label__, STANDARD_LABEL
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] %(name)s: %(message)s')
 
-from ui.ui_inputs import render_pipe_inputs, render_sidebar_inputs
+from ui.ui_inputs import render_pipe_inputs, render_sidebar_settings, render_technical_inputs
 from ui.ui_recommendations import render_step1_recommendations, render_step2_recommendations
 from ui.ui_analysis import render_fitting_analysis, render_analysis_results
 from ui.ui_update import render_update_section
+from ui.theme import apply_theme, render_theme_selector
 from logs.logbook_manager import LogbookManager
 
 # --- STATE MANAGEMENT ---
@@ -48,18 +49,25 @@ st.set_page_config(
 st.title(APP_TITLE)
 st.markdown(f"**Standart:** {STANDARD_LABEL} | **Metod:** Area Replacement ve Smart Fitting Selection")
 
+# Tema (config + merkezî CSS) — içerikten önce uygulanır
+apply_theme()
+
 run_data = st.session_state.run_data
 branch_data = st.session_state.branch_data
 
-# --- SIDEBAR & INPUTS ---
-with st.sidebar:
-    # Sidebar girdi bileşenleri (ASME B31.8, API 5L, NACE MR0175)
+# --- ANA EKRAN: TEKNİK GİRDİLER (sidebar sadeleştirildi) ---
+with st.expander("🧾 Proje Parametreleri (Operasyon, Faktörler, Tolerans)", expanded=(st.session_state.get("step", 1) == 1)):
     (
         design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
         facility_type, seam_type, location_class,
         hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, sleeve_pressure_containing
-    ) = render_sidebar_inputs()
+    ) = render_technical_inputs()
+
+# --- SIDEBAR: AYARLAR, VERİ, LOGBOOK, TEMA, GÜNCELLEME ---
+with st.sidebar:
+    # Global proje ayarları (birim sistemi)
+    render_sidebar_settings()
 
     st.markdown("---")
     st.header("📁 Veri Yönetimi")
@@ -231,10 +239,22 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"İçe aktarma hatası: {e}")
 
+    # Görünüm / tema seçici
+    render_theme_selector()
+
     # Güncelleme kontrolü (açılışta sessiz kontrol, opt-out)
     render_update_section()
 
-run_data, branch_data, d_hole_type = render_pipe_inputs()
+_on_results_step = (
+    st.session_state.get("step") == 3 and st.session_state.get("analysis_results") is not None
+)
+if _on_results_step:
+    # 3. adım: temiz sonuç/rapor ekranı — girdi formu gizlenir
+    run_data = st.session_state.run_data
+    branch_data = st.session_state.branch_data
+    d_hole_type = st.session_state.get("d_hole_type", "ID")
+else:
+    run_data, branch_data, d_hole_type = render_pipe_inputs()
 
 st.markdown("---")
 
@@ -321,9 +341,13 @@ def run_application():
             d_hole_type=d_hole_type
         )
 
-    # Step 3: Completion/Review
+    # Step 3: Completion/Review — temiz sonuç ve raporlama ekranı
     elif st.session_state.step == 3:
-        st.header("✅ Analiz Tamamlandı")
+        st.header("✅ Analiz Tamamlandı — Sonuçlar ve Raporlama")
+        st.caption(
+            "Seçilen fitting yapılandırması için alan telafisi hesabı tamamlandı. "
+            "Aşağıda sonuçlar, 2D/3D görseller ve rapor indirme yer alır."
+        )
 
         if st.session_state.analysis_results is not None and st.session_state.dm_results is not None:
             render_analysis_results(
@@ -334,11 +358,20 @@ def run_application():
                 st.session_state.get("selected_fitting", ""),
                 st.session_state.eng_kwargs or {},
             )
+        else:
+            st.warning("Analiz sonucu bulunamadı. Lütfen parametreleri yeniden girin.")
 
-        if st.button("🔄 Sıfırla ve Yeniden Başla", key="reset", use_container_width=True):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+        st.markdown("---")
+        c_edit, c_reset = st.columns(2)
+        with c_edit:
+            if st.button("⚙️ Yapılandırmayı Düzenle", key="edit_config", use_container_width=True):
+                st.session_state.step = 2
+                st.rerun()
+        with c_reset:
+            if st.button("🔄 Sıfırla ve Yeniden Başla", key="reset", use_container_width=True):
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
 
 
 # --- MAIN EXECUTION ---

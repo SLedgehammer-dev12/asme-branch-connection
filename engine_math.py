@@ -488,22 +488,30 @@ def evaluate_complete_encirclement_reinforcement(
     f_branch: float = 1.0,
     f_sleeve: float = 1.0,
     weld_area_mm2: float = 0.0,
+    count_pipe_metal: bool = False,
+    opening_od_mm: float = 0.0,
 ) -> Dict[str, Any]:
     """
     ASME B31.8-2025 Para 831.4.1 + Mandatory Appendix F (Fig. F-2.1.5-1).
 
     Complete encirclement (tam kuşatma) takviye alanı yöntemi. Manşon takviye
-    elemanı olarak değerlendirilir; taşıyıcı borunun manşon altındaki metali
-    takviye sayılmaz (Mandatory Appendix I, Fig. I-1.1-3 not 1).
+    elemanı olarak değerlendirilir.
+
+    **Fig. I-1.1-3 Note (1):** Tam kuşatma (tee tipi) altında boru metali takviye
+    sayılmaz (basınç her iki taraftan etkir) → `count_pipe_metal=False` iken
+    A1 = 0 alınır. A2 (branşman cidarı fazlalığı) tek taraflı basınç altındadır ve
+    korunur.
 
         A_R     = d * t
-        A1      = (H - t) * d
+        A1      = 0 (count_pipe_metal=False) veya (H - t) * d
         A2      = 2 * (B - t_b) * L * f_branch
-        A4      = t_sleeve * (min(L_sleeve, 2d) - d) * f_sleeve
+        A4      = t_sleeve * (min(L_s, 2d) - açıklık) * f_sleeve
         A_avail = A1 + A2 + A3(kaynak) + A4
 
     d = açıklık uzunluğu (koşu eksenine paralel) ile branşman iç çapından büyük olanı.
     L = takviye bölgesi yüksekliği = min(2.5*T_header, 2.5*T_branch + t_sleeve).
+    açıklık = max(d, opening_od_mm): fiziksel branşman açıklığı (muhafazakâr;
+    `opening_od_mm=0` ise yalnız d kullanılır — geriye uyumlu).
 
     Normatif değerler lisanslı ASME B31.8-2025 kopyası ile doğrulanmalıdır.
     """
@@ -518,7 +526,8 @@ def evaluate_complete_encirclement_reinforcement(
     L_s = max(0.0, sleeve_length_mm or 0.0)
 
     A_R = d * t_h
-    A1 = max(0.0, H - t_h) * d
+    # Fig. I-1.1-3 Note (1): tam kuşatma altında boru metali takviye sayılmaz
+    A1 = max(0.0, H - t_h) * d if count_pipe_metal else 0.0
 
     if T_h > 0.0 and T_b > 0.0:
         L_zone = min(2.5 * T_h, 2.5 * T_b + t_s)
@@ -530,7 +539,9 @@ def evaluate_complete_encirclement_reinforcement(
 
     # Takviye bölgesi uzunluğu: merkez hattının her iki yanında d (toplam 2d)
     zone_length = 2.0 * d
-    member_eff_len = max(0.0, min(L_s, zone_length) - d) if L_s > 0.0 else max(0.0, zone_length - d)
+    # Fiziksel açıklık: branşman OD'si verilmişse d'den büyük olanı kullan (muhafazakâr)
+    opening = max(d, max(0.0, opening_od_mm or 0.0))
+    member_eff_len = max(0.0, min(L_s, zone_length) - opening) if L_s > 0.0 else max(0.0, zone_length - opening)
     A4 = t_s * member_eff_len * max(0.0, f_sleeve)
 
     A3 = max(0.0, weld_area_mm2 or 0.0)
@@ -540,6 +551,8 @@ def evaluate_complete_encirclement_reinforcement(
     return {
         "method": "complete_encirclement_area",
         "d_mm": round(d, 3),
+        "opening_mm": round(opening, 3),
+        "count_pipe_metal": bool(count_pipe_metal),
         "A_R": round(A_R, 2),
         "A1": round(A1, 2),
         "A2": round(A2, 2),
@@ -551,7 +564,7 @@ def evaluate_complete_encirclement_reinforcement(
         "zone_length_mm": round(zone_length, 3),
         "member_length_effective_mm": round(member_eff_len, 3),
         "pass": A_avail >= A_R,
-        "clause": "ASME B31.8-2025 Para 831.4.1(b)-(g) ve Mandatory Appendix F (Fig. F-2.1.5-1)",
+        "clause": "ASME B31.8-2025 Para 831.4.1(b)-(g), Mandatory Appendix F (Fig. F-2.1.5-1) ve Appendix I Fig. I-1.1-3 Note (1)",
     }
 
 

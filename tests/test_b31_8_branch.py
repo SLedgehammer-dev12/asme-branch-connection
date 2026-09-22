@@ -75,12 +75,21 @@ def test_hot_tap_reinforcement_sleeve_no_j_check():
     assert res["split_tee"].get("pressurized") is None
 
 
-def test_olet_over_half_run_generates_warning():
+def test_olet_over_half_run_demotes_exemption():
+    """MSS SP-97 d/D > 0.5: muafiyet otomatik onaylanmaz, ek değerlendirme gerekir."""
     eng = _engine(pad_props={"has_pad": False})
     # branch OD 406.4 > 0.5 * 609.6 = 304.8
     res = eng.analyze(_run(), _branch(nps="16", od=406.4), selected_fitting_type="WELDOLET / SOCKOLET / OLET")
-    assert res["is_exempt"] is True
+    assert res["is_exempt"] is False
     assert any("yarısını" in m["text"] for m in res["messages"])
+    assert any("EK MÜHENDİSLİK DEĞERLENDİRMESİ" in m["text"] for m in res["messages"])
+
+
+def test_olet_within_half_run_remains_exempt():
+    """d/D <= 0.5: olet muafiyeti korunur."""
+    eng = _engine(pad_props={"has_pad": False})
+    res = eng.analyze(_run(), _branch(nps="10", od=273.0), selected_fitting_type="WELDOLET / SOCKOLET / OLET")
+    assert res["is_exempt"] is True
 
 
 def test_nps2_branch_no_reinforcement_calc_message():
@@ -155,3 +164,36 @@ def test_area_details_exempt_flag():
     assert res["is_exempt"] is True
     assert res["area_details"]["is_exempt"] is True
     assert res["area_details"]["A_avail"] == 0.0
+
+
+def test_complete_encirclement_a1_zero():
+    """Fig. I-1.1-3 Note (1): tam kuşatma altında boru metali takviye sayılmaz → A1 = 0."""
+    eng = _engine(pad_props={"has_pad": True, "T_pad": 12.0, "D_pad": 520.0})
+    res = eng.analyze(_run(), _branch(), selected_fitting_type="SPLIT TEE")
+    ce = res["complete_encirclement"]
+    assert ce is not None
+    assert ce["A1"] == 0.0
+    assert res["A1"] == 0.0
+    assert ce["count_pipe_metal"] is False
+    a1 = next(c for c in res["area_details"]["components"] if c["code"] == "A1")
+    assert "I-1.1-3" in a1["formula"]
+
+
+def test_complete_encirclement_opening_uses_branch_od():
+    """Efektif manşon uzunluğu: fiziksel açıklık = max(d, branşman OD)."""
+    eng = _engine(pad_props={"has_pad": True, "T_pad": 12.0, "D_pad": 520.0})
+    res = eng.analyze(_run(), _branch(od=273.0), selected_fitting_type="FULL ENCIRCLEMENT SLEEVE")
+    ce = res["complete_encirclement"]
+    assert ce["opening_mm"] == 273.0  # OD > d (ID) olduğu için OD kullanılır
+
+
+def test_angle_below_85_triggers_weakening_warning():
+    """Para 831.4.1(l): 45° ≤ β < 85° → bireysel çalışma / ilave takviye uyarısı."""
+    eng = _engine(pad_props={"has_pad": False}, branch_angle_deg=60.0)
+    res = eng.analyze(_run(), _branch(), selected_fitting_type="FABRICATED BRANCH (Takviyesiz)")
+    assert any(
+        m.get("level") == "warning" and "831.4.1(l)" in m.get("text", "")
+        for m in res["messages"]
+    )
+    assert any("831.4.1(l)" in t.get("ref", "") for t in res["ClauseTrace"])
+    assert "831.4.1(l)" in res["Final_Action"]

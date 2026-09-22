@@ -51,7 +51,7 @@ report_pdf.py          → PDF hesap föyü üreticisi (ReportLab)
 fitting_database.py    → NPS/OD, schedule, malzeme, fitting boyut verileri
 ui/                    → Streamlit UI bileşenleri
 data/                  → JSON veri dosyaları (NPS, schedule, malzeme katalogları)
-tests/                 → Pytest testleri (369 test)
+tests/                 → Pytest testleri (382 test)
 assets/                → Fitting görselleri (SVG)
 logs/                  → Logbook yönetimi
 docs/                  → Geliştirme dökümanları
@@ -59,6 +59,7 @@ docs/                  → Geliştirme dökümanları
 
 ## Sürüm Geçmişi
 
+- **v3.7.0** (2026-09-22): Tema seçici (Açık/Koyu/Sistem + vurgu rengi), Fig. I-1.1-3 Note 1 uyarınca tam kuşatma A1=0, Para 831.4.1(l) 85° kuralı, MSS SP-97 d/D>0.5 muafiyet düşürme, gerçek birim sistemi (imperial) entegrasyonu, step-3 sonuç ekranı, tekil rapor metadata kartı, 2D fitting profili + ölçü okları, raporlara SVG/vektör kesit gömme
 - **v3.6.1** (2026-09-22): Güncelleme kontrolü (GitHub Releases, sürüm tek kaynağı `version.py`, opt-out), `L_eff = min(L₁,L₂)` alan zonu düzeltmesi, A1/A2/A3/A4 sayısal hesap detayları (UI + HTML + PDF), PDF Türkçe font desteği
 - **v3.6.0** (2026-08-24): Duplex A815 desteği, malzeme karşılaştırma düzeltmesi, zone/muafiyet tutarlılığı, hot-tap gerçek CE, hidrotest & raporlama
 - **v3.5.0** (2026-08-24): Hot tap P_safe derating, heat-sink termal analiz, Split Tee uç/alan doğrulaması, EN/API/A516 malzeme kataloğu, fitting'e özel 3D CAD

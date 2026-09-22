@@ -49,6 +49,16 @@ def render_update_section() -> None:
         with st.spinner("Güncellemeler kontrol ediliyor..."):
             _run_check(force=True)
         result = st.session_state.get(_RESULT_KEY)
+        _status = (result or {}).get("status")
+        if _status == "update_available":
+            st.toast(f"Yeni sürüm mevcut: v{result.get('latest')}", icon="🎉")
+        elif _status == "up_to_date":
+            st.toast("En son sürümü kullanıyorsunuz.", icon="✅")
+        else:
+            st.toast(
+                f"Güncelleme kontrolü yapılamadı: {(result or {}).get('error', 'bilinmeyen hata')}",
+                icon="⚠️",
+            )
     elif result is None and enabled:
         # Açılışta sessiz, oturum başına bir kez
         _run_check(force=False)

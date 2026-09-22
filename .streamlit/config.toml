@@ -1,0 +1,18 @@
+# ASME B31.8 Pipeline Designer — Streamlit tema tanımları
+# Not: `base` burada SABİTLENMEZ; uygulama içi tema seçici (Açık/Koyu/Sistem)
+# runtime'da `theme.base` ayarını yönetir.
+
+[theme]
+primaryColor = "#4CAF50"
+
+[theme.light]
+primaryColor = "#4CAF50"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#0F172A"
+
+[theme.dark]
+primaryColor = "#4CAF50"
+backgroundColor = "#0B1220"
+secondaryBackgroundColor = "#111C2E"
+textColor = "#E2E8F0"
