@@ -98,8 +98,17 @@ def _platform_keywords() -> List[List[str]]:
     return []
 
 
+_PREFERRED_EXTS = (".dmg", ".exe", ".zip")
+
+
 def select_platform_asset(assets: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Release asset'leri içinden mevcut platforma en uygun indirilebilir dosyayı seçer."""
+    """
+    Release asset'leri içinden mevcut platforma en uygun dosyayı seçer.
+
+    Tercih sırası: `.dmg` → `.exe` → `.zip` (tek dosya kurulum önce gelir).
+    Aynı platform için birden fazla asset varsa (ör. .exe + Portable.zip)
+    tek dosya olan seçilir.
+    """
     if not assets:
         return None
     # Yalnızca gerçek arşivleri düşün (sha256 hariç)
@@ -107,14 +116,26 @@ def select_platform_asset(assets: List[Dict[str, Any]]) -> Optional[Dict[str, An
         a for a in assets
         if a.get("name") and not str(a.get("name", "")).lower().endswith(".sha256")
     ]
+
+    def _rank(asset: Dict[str, Any]) -> int:
+        name = str(asset.get("name", "")).lower()
+        for idx, ext in enumerate(_PREFERRED_EXTS):
+            if name.endswith(ext):
+                return idx
+        return len(_PREFERRED_EXTS)
+
     for kws in _platform_keywords():
+        matches = []
         for asset in candidates:
             name = str(asset.get("name", "")).lower()
             if kws[0] not in name:
                 continue
             if len(kws) > 1 and kws[1] not in name:
                 continue
-            return asset
+            matches.append(asset)
+        if matches:
+            matches.sort(key=_rank)
+            return matches[0]
     return None
 
 

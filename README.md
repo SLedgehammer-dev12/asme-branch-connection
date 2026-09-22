@@ -35,9 +35,14 @@ pytest tests/ -v --tb=short
 ## EXE Build
 
 ```bash
-python build_exe.py
-# dist/ASME_Branch_Connection_V3.exe
+python build_exe.py                # onefile: dist/ASME_Branch_Connection_V3(.exe)
+python build_exe.py --mode=onedir  # AV dostu klasor cikti
 ```
+
+Yayın paketleri (GitHub Actions, sürüm numaralı):
+- `ASME_Branch_Connection_v<surum>_Windows_x64.exe` (tek dosya)
+- `ASME_Branch_Connection_v<surum>_Windows_x64_Portable.zip` (AV dostu onedir)
+- `ASME_Branch_Connection_v<surum>_macOS_AppleSilicon_ARM64.dmg`
 
 ## Proje Yapısı
 

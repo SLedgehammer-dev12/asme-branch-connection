@@ -61,24 +61,39 @@ jobs:
       - name: Build Standalone Executable (Anti-Malware Safe)
         run: |
           python build_exe.py
+          python build_exe.py --mode=onedir
 
-      - name: Package Windows Release Archive
+      - name: Package Windows Release Artifacts
         shell: pwsh
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
           if (-not $ver) { $ver = 'v3.8.0' }
-          $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
-          Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
-          Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
+          $v = $ver.TrimStart('v')
+
+          # --- 1) Tek dosya .exe (surumlu ad) ---
+          $exeName = "ASME_Branch_Connection_v${v}_Windows_x64.exe"
+          Move-Item -Force dist/ASME_Branch_Connection_V3.exe $exeName
+          $exeHash = (Get-FileHash -Path $exeName -Algorithm SHA256).Hash.ToLower()
+          "$exeHash  $exeName" | Out-File -Encoding ascii "${exeName}.sha256"
+
+          # --- 2) AV dostu onedir portable zip ---
+          $zipName = "ASME_Branch_Connection_v${v}_Windows_x64_Portable.zip"
+          Compress-Archive -Path dist/ASME_Branch_Connection_V3_onedir/*, README.md -DestinationPath $zipName
+          $zipHash = (Get-FileHash -Path $zipName -Algorithm SHA256).Hash.ToLower()
+          "$zipHash  $zipName" | Out-File -Encoding ascii "${zipName}.sha256"
+
+          Get-ChildItem -Path . -Filter "ASME_Branch_Connection_v*" | Select-Object Name, Length
 
       - name: Upload Windows Artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
           path: |
-            ASME_Branch_Connection_*_Windows_x64.zip
-            ASME_Branch_Connection_*_Windows_x64.zip.sha256
+            ASME_Branch_Connection_v*_Windows_x64.exe
+            ASME_Branch_Connection_v*_Windows_x64.exe.sha256
+            ASME_Branch_Connection_v*_Windows_x64_Portable.zip
+            ASME_Branch_Connection_v*_Windows_x64_Portable.zip.sha256
 
   build-macos:
     name: Build macOS Apple Silicon (ARM64)
@@ -103,13 +118,9 @@ jobs:
       - name: Build Native ARM64 Binary
         run: |
           python3 build_exe.py
-
-      - name: Apply Ad-hoc Codesign (Gatekeeper Compatibility)
-        run: |
-          codesign --force --deep --sign - dist/ASME_Branch_Connection_V3
           chmod +x dist/ASME_Branch_Connection_V3
 
-      - name: Package macOS Apple Silicon Release
+      - name: Package macOS Apple Silicon DMG
         run: |
           VER="${{ github.ref_name }}"
           if [[ -z "$VER" || "$VER" != v* ]]; then
@@ -118,28 +129,81 @@ jobs:
           if [[ -z "$VER" ]]; then
             VER="v3.8.0"
           fi
-          ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
-          
-          cat << 'EOF' > dist/Start_ASME_Tool.command
+          V="${VER#v}"
+
+          APP_SRC="dist/ASME_Branch_Connection_V3.app"
+          APP_NAME="ASME_Branch_Connection_v${V}.app"
+          STAGE="dmg-stage"
+
+          rm -rf "$STAGE"
+          mkdir -p "$STAGE"
+
+          if [ -d "$APP_SRC" ]; then
+            cp -R "$APP_SRC" "$STAGE/$APP_NAME"
+          else
+            # .app uretilmemisse cikti binary'sini uygulama klasorune koy
+            mkdir -p "$STAGE/$APP_NAME"
+            cp "dist/ASME_Branch_Connection_V3" "$STAGE/$APP_NAME/"
+          fi
+
+          # /Applications kisayolu (surukle-birak kurulum)
+          ln -s /Applications "$STAGE/Applications"
+
+          # Kullanim notu
+          cat > "$STAGE/README.txt" << 'READMEEOF'
+          ASME B31.8 Pipeline Designer — macOS Kurulum
+          ============================================
+
+          1) Uygulamayi Applications klasorune surukleyin.
+          2) Ilk acilista macOS "tanimlanamayan gelistirici" uyarisi verebilir
+             (uygulama imzasiz/notarize edilmemistir).
+             Cozum: uygulamaya sag tik -> "Ac" -> "Ac" secin,
+             VEYA bu klasordeki "First launch (macOS).command" dosyasini
+             cift tiklayarak karantinayi temizleyin.
+          3) Terminal ile acmak isterseniz:
+             xattr -dr com.apple.quarantine "/Applications/ASME_Branch_Connection_v__VERSION__.app"
+
+          READMEEOF
+          sed -i '' "s/__VERSION__/${V}/g" "$STAGE/README.txt"
+
+          # Ilk acilis yardimcisi (karantina temizligi + acma)
+          cat > "$STAGE/First launch (macOS).command" << 'LAUNCHEOF'
           #!/bin/bash
           DIR="$(cd "$(dirname "$0")" && pwd)"
-          xattr -d com.apple.quarantine "$DIR/ASME_Branch_Connection_V3" 2>/dev/null || true
-          exec "$DIR/ASME_Branch_Connection_V3"
-          EOF
-          chmod +x dist/Start_ASME_Tool.command
-          
-          cd dist
-          zip -r "../${ZIP_NAME}" ASME_Branch_Connection_V3 Start_ASME_Tool.command
-          cd ..
-          shasum -a 256 "${ZIP_NAME}" > "${ZIP_NAME}.sha256"
+          APP="ASME_Branch_Connection_v__VERSION__.app"
+          xattr -dr com.apple.quarantine "$DIR/$APP" 2>/dev/null || true
+          xattr -dr com.apple.quarantine "/Applications/$APP" 2>/dev/null || true
+          if [ -d "/Applications/$APP" ]; then
+            open "/Applications/$APP"
+          else
+            open "$DIR/$APP"
+          fi
+          LAUNCHEOF
+          sed -i '' "s/__VERSION__/${V}/g" "$STAGE/First launch (macOS).command"
+          chmod +x "$STAGE/First launch (macOS).command"
+
+          # Ad-hoc imza (Gatekeeper icin; notarization yok)
+          if [ -d "$STAGE/$APP_NAME" ]; then
+            codesign --force --deep --sign - "$STAGE/$APP_NAME" || true
+          fi
+
+          DMG_NAME="ASME_Branch_Connection_v${V}_macOS_AppleSilicon_ARM64.dmg"
+          hdiutil create \
+            -volname "ASME B31.8 Designer ${VER}" \
+            -srcfolder "$STAGE" \
+            -ov -format UDZO \
+            "$DMG_NAME"
+
+          shasum -a 256 "$DMG_NAME" > "${DMG_NAME}.sha256"
+          ls -lh "$DMG_NAME"
 
       - name: Upload macOS Artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
           path: |
-            ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip
-            ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip.sha256
+            ASME_Branch_Connection_v*_macOS_AppleSilicon_ARM64.dmg
+            ASME_Branch_Connection_v*_macOS_AppleSilicon_ARM64.dmg.sha256
 
   publish-release:
     name: Publish GitHub Release
@@ -157,8 +221,30 @@ jobs:
       - name: Prepare Release Assets
         run: |
           mkdir -p final-release
-          find release-artifacts -type f -name "*.zip*" -exec cp {} final-release/ \;
+          find release-artifacts -type f \( -name "*.zip*" -o -name "*.exe*" -o -name "*.dmg*" \) -exec cp {} final-release/ \;
           ls -la final-release/
+
+      - name: Remove Obsolete Assets (eski zip formati)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ -z "$TAG" || "$TAG" != v* ]]; then
+            TAG="${{ inputs.version }}"
+          fi
+          if [[ -z "$TAG" ]]; then
+            TAG="v3.8.0"
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG bulunamadi, temizlik atlandi."
+            exit 0
+          fi
+          gh release view "$TAG" --json assets --jq '.assets[].name' | while read -r name; do
+            case "$name" in
+              *_Windows_x64.zip|*_Windows_x64.zip.sha256|*_macOS_AppleSilicon_ARM64.zip|*_macOS_AppleSilicon_ARM64.zip.sha256)
+                gh release delete-asset "$TAG" "$name" -y && echo "Silindi (eski format): $name" ;;
+            esac
+          done
 
       - name: Create or Update GitHub Release
         env:
@@ -178,8 +264,19 @@ jobs:
           Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2025**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
 
           ### 📦 İndirilebilir Paketler (Downloads):
-          * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
-          * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+          * **Windows 10 / 11 (x64) — Tek dosya**: `ASME_Branch_Connection___TAG___Windows_x64.exe` (portable `.exe`)
+          * **Windows 10 / 11 (x64) — Portable (AV dostu)**: `ASME_Branch_Connection___TAG___Windows_x64_Portable.zip` (klasör çıktı; antivirüs yanlış pozitifleri için önerilir)
+          * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection___TAG___macOS_AppleSilicon_ARM64.dmg`
+          * Tüm dosyaların yanında `.sha256` doğrulama dosyaları bulunur.
+
+          ### 🔐 İmzalama / Güvenlik Notu:
+          * Bu sürüm **kod imzalama sertifikası olmadan** üretilmiştir. Windows SmartScreen/antivirüs ve macOS Gatekeeper ilk açılışta uyarı verebilir.
+          * **Windows:** `.exe` yerine AV hassas ortamlarda `..._Portable.zip` sürümünü tercih edin.
+          * **macOS:** DMG içindeki `README.txt` ve `First launch (macOS).command` dosyaları ilk açılış adımlarını içerir (karantina temizliği).
+          * Derleme anti-malware dostudur: UPX kapalı, sürüm bilgisi + uygulama manifesti (asInvoker) gömülü.
+
+          ### 📦 Dosya Adlandırma:
+          Tüm paketler sürüm numarasını içerir: `ASME_Branch_Connection_<tag>_<platform>.<uzanti>`
 
           ### ✨ V3.8.0 Yenilikleri:
           * **Mimari — Raporlama Katmanı:** `generate_html_report` motordan çıkarıldı; HTML ve PDF üreticileri bağımsız **`reporting/`** paketinde (`reporting/html.py`, `reporting/pdf.py`). `engine` artık yalnızca ince bir sarmalayıcı içerir; geriye uyumluluk korunur.
@@ -270,6 +367,8 @@ jobs:
           ---
           *Güvenlik ve Bütünlük*: Tüm paketler anti-virüs / anti-malware yanlış pozitiflerini önlemek için UPX sıkıştırmasız ve standart PE/Mach-O imzalarıyla derlenmiştir.
           EOF
+
+          sed -i "s/__TAG__/${TAG}/g" release_notes.md
 
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Updating existing release $TAG..."

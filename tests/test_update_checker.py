@@ -76,6 +76,46 @@ class TestPlatformAsset:
         assert uc.select_platform_asset(self._assets()) is None
         assert uc.select_platform_asset([]) is None
 
+    def test_prefers_single_file_dmg_over_zip(self, monkeypatch):
+        """macOS: .dmg, .zip'e tercih edilir (tek dosya kurulum)."""
+        monkeypatch.setattr(uc.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(uc.platform, "machine", lambda: "arm64")
+        assets = [
+            {"name": "ASME_Branch_Connection_v3.8.0_macOS_AppleSilicon_ARM64.zip",
+             "browser_download_url": "u1"},
+            {"name": "ASME_Branch_Connection_v3.8.0_macOS_AppleSilicon_ARM64.dmg",
+             "browser_download_url": "u2"},
+            {"name": "ASME_Branch_Connection_v3.8.0_macOS_AppleSilicon_ARM64.dmg.sha256",
+             "browser_download_url": "u3"},
+        ]
+        a = uc.select_platform_asset(assets)
+        assert a["browser_download_url"] == "u2"
+
+    def test_prefers_exe_over_portable_zip(self, monkeypatch):
+        """Windows: .exe, Portable .zip'e tercih edilir."""
+        monkeypatch.setattr(uc.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(uc.platform, "machine", lambda: "AMD64")
+        assets = [
+            {"name": "ASME_Branch_Connection_v3.8.0_Windows_x64_Portable.zip",
+             "browser_download_url": "u1"},
+            {"name": "ASME_Branch_Connection_v3.8.0_Windows_x64.exe",
+             "browser_download_url": "u2"},
+            {"name": "ASME_Branch_Connection_v3.8.0_Windows_x64.exe.sha256",
+             "browser_download_url": "u3"},
+        ]
+        a = uc.select_platform_asset(assets)
+        assert a["browser_download_url"] == "u2"
+
+    def test_falls_back_to_zip_when_no_single_file(self, monkeypatch):
+        monkeypatch.setattr(uc.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(uc.platform, "machine", lambda: "AMD64")
+        assets = [
+            {"name": "ASME_Branch_Connection_v3.8.0_Windows_x64_Portable.zip",
+             "browser_download_url": "u1"},
+        ]
+        a = uc.select_platform_asset(assets)
+        assert a["browser_download_url"] == "u1"
+
 
 class TestCheckForUpdate:
     def test_update_available(self, monkeypatch):

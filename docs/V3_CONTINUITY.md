@@ -399,6 +399,29 @@ Acik kalanlar:
 Bir sonraki adim:
 - i18n sozluklerini genisletmek (engine mesajlari + rapor govdesi) ve kalan UI metinlerini tasimak.
 
+### 2026-09-23 (7) - Paketleme: surumlu .exe + onedir Portable.zip + macOS .dmg
+
+Yapilanlar:
+- **`build_exe.py`**: `--mode=onefile|onedir` argumani (varsayilan onefile); onedir icin ayri isim (`ASME_Branch_Connection_V3_onedir`). Windows `file_version_info.txt` artik **`version.py`'den otomatik uretilir** (elle senkron kaldirildi). Windows'ta **uygulama manifesti** (`assets/app.manifest`: `asInvoker`, Win7-11 uyumluluk, `longPathAware`, `dpiAware`) eklenir. UPX kapali + `--clean` korunur (AV azaltma).
+- **`assets/app.manifest`** eklendi.
+- **`release.yml`**:
+  - Windows: onefile + onedir derlenir → `ASME_Branch_Connection_v<surum>_Windows_x64.exe` ve `..._Windows_x64_Portable.zip` (+ .sha256).
+  - macOS: `.app` surumlu isme kopyalanir, ad-hoc imzalanir, staging (`.app` + `Applications` symlink + `README.txt` + `First launch (macOS).command`) ile **`hdiutil` DMG** uretilir → `ASME_Branch_Connection_v<surum>_macOS_AppleSilicon_ARM64.dmg` (+ .sha256).
+  - publish: asset desenleri `*.zip*`/`*.exe*`/`*.dmg*`; ayni tag uzerine yazarken **eski `.zip` asset'leri silinir**; release notlari `__TAG__` yer tutucusu ile surumlenir; imzalama/AV notu eklendi.
+- **`update_checker.py`**: `select_platform_asset` tercih sirasi **`.dmg` → `.exe` → `.zip`** (tek dosya kurulum oncelikli). 3 yeni test.
+- **`.gitignore`**: `*.dmg`, `*.zip`; **README** paketleme bolumu guncellendi.
+
+Dogrulama:
+- `python -m pytest tests/ -q`: **391/391 PASSED** (+3 asset tercih testi).
+- Yerel macOS: `build_exe.py` → binary + `.app`; `hdiutil` ile DMG uretildi (127 MB), mount edildi; DMG icindeki `.app` calistirildi → `health ok`, `HTTP 200`, 0 hata; DMG detach edildi.
+- Workflow YAML sozdizimi dogrulandi (4 job).
+
+Acik kalanlar:
+- Kod imzalama sertifikasi yok: Windows SmartScreen/AV ve macOS Gatekeeper ilk acilista uyari verebilir. Onedir `Portable.zip` AV hassas ortamlar icin onerilir; Apple/Windows sertifikasi ileride secrets ile eklenebilir.
+
+Bir sonraki adim:
+- `v3.8.0` tag'i icin workflow yeniden tetiklenip yeni formatlar yayinlanir; asset boyut/SHA256 dogrulanir.
+
 ## Update Template
 
 Yeni oturum sonunda asagidaki format kullanilabilir:

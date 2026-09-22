@@ -12,8 +12,9 @@ dist/
 *.spec.bak
 
 # PyInstaller
-*.manifest
 *.exe
+*.dmg
+*.zip
 
 # Environment
 .env
