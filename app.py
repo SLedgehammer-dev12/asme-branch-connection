@@ -8,6 +8,7 @@ from datetime import datetime
 import streamlit as st
 
 from version import APP_TITLE, APP_NAME, __version_label__, STANDARD_LABEL
+from i18n import t
 
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] %(name)s: %(message)s')
@@ -47,7 +48,7 @@ st.set_page_config(
 )
 
 st.title(APP_TITLE)
-st.markdown(f"**Standart:** {STANDARD_LABEL} | **Metod:** Area Replacement ve Smart Fitting Selection")
+st.markdown(t("app.standard_line"))
 
 # Tema (config + merkezî CSS) — içerikten önce uygulanır
 apply_theme()
@@ -56,7 +57,7 @@ run_data = st.session_state.run_data
 branch_data = st.session_state.branch_data
 
 # --- ANA EKRAN: TEKNİK GİRDİLER (sidebar sadeleştirildi) ---
-with st.expander("🧾 Proje Parametreleri (Operasyon, Faktörler, Tolerans)", expanded=(st.session_state.get("step", 1) == 1)):
+with st.expander(t("inputs.section_title"), expanded=(st.session_state.get("step", 1) == 1)):
     (
         design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
@@ -70,7 +71,7 @@ with st.sidebar:
     render_sidebar_settings()
 
     st.markdown("---")
-    st.header("📁 Veri Yönetimi")
+    st.header(t("sidebar.data_mgmt"))
 
     # Kaydet
     if st.button("Girdileri Kaydet"):
@@ -147,7 +148,7 @@ with st.sidebar:
         st.info("Yüklenen girdiler uygulandı.")
 
     st.markdown("---")
-    st.header("📖 Proje Logbook")
+    st.header(t("sidebar.logbook"))
 
     # Logbook Summary
     summary = st.session_state.logbook.get_summary()
@@ -267,7 +268,7 @@ def run_application():
     current_step = st.session_state.get("step", 1)
 
     # Progress indicator
-    steps = ["Parametre Girişi", "Ön Analiz", "Alan Hesabı ve Sonuçlar"]
+    steps = t("app.step_names").split(",")
     step_labels = ["1️⃣ " + steps[0], "2️⃣ " + steps[1], "3️⃣ " + steps[2]]
 
     if current_step == 1:
@@ -290,7 +291,7 @@ def run_application():
     st.markdown("---")
     # Step 1: Input & Initial Recommendations
     if st.session_state.step == 1:
-        st.header("Adım 1: Parametre Girişi ve Ön Analiz")
+        st.header(t("app.step1_header"))
         render_step1_recommendations(
             P_val=P_val, P_unit=P_unit, F=F, E=E, T_factor=T_factor, CA_mm=CA_mm,
             op_type=op_type, design_temp=design_temp, run_data=run_data, branch_data=branch_data,
@@ -302,7 +303,7 @@ def run_application():
 
     # Step 2: Core Analysis & Results Display
     elif st.session_state.step == 2:
-        st.header("Adım 2: Hesaplama ve Sonuçlar")
+        st.header(t("app.step2_header"))
 
         # 1. Core Calculation Execution
         dm_res = render_step2_recommendations(
@@ -343,11 +344,8 @@ def run_application():
 
     # Step 3: Completion/Review — temiz sonuç ve raporlama ekranı
     elif st.session_state.step == 3:
-        st.header("✅ Analiz Tamamlandı — Sonuçlar ve Raporlama")
-        st.caption(
-            "Seçilen fitting yapılandırması için alan telafisi hesabı tamamlandı. "
-            "Aşağıda sonuçlar, 2D/3D görseller ve rapor indirme yer alır."
-        )
+        st.header(t("app.step3_header"))
+        st.caption(t("app.step3_caption"))
 
         if st.session_state.analysis_results is not None and st.session_state.dm_results is not None:
             render_analysis_results(
@@ -359,16 +357,16 @@ def run_application():
                 st.session_state.eng_kwargs or {},
             )
         else:
-            st.warning("Analiz sonucu bulunamadı. Lütfen parametreleri yeniden girin.")
+            st.warning(t("app.analysis_missing"))
 
         st.markdown("---")
         c_edit, c_reset = st.columns(2)
         with c_edit:
-            if st.button("⚙️ Yapılandırmayı Düzenle", key="edit_config", use_container_width=True):
+            if st.button(t("app.btn_edit_config"), key="edit_config", use_container_width=True):
                 st.session_state.step = 2
                 st.rerun()
         with c_reset:
-            if st.button("🔄 Sıfırla ve Yeniden Başla", key="reset", use_container_width=True):
+            if st.button(t("app.btn_reset"), key="reset", use_container_width=True):
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()

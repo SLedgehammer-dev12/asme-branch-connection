@@ -14,6 +14,7 @@ from units import (
     length_mm_to_in,
     length_in_to_mm,
 )
+from i18n import t, get_language, LANGUAGE_LABELS
 
 PIPE_MATERIALS_DB = db.PIPE_MATERIALS_BY_STANDARD
 NPS_OD_MM = db.NPS_OD_MM
@@ -27,33 +28,42 @@ def render_sidebar_settings():
     if os.path.exists(logo_path):
         st.image(logo_path, caption="ASME B31.8 Pipeline Engineering", use_container_width=True)
 
-    st.header("⚙️ Proje Ayarları")
+    st.header(t("sidebar.project_settings"))
     unit_system = st.radio(
-        "Birim Sistemi (Unit System)",
+        t("sidebar.unit_system"),
         ["metric", "imperial"],
         index=0,
-        format_func=lambda x: "Metric (mm, MPa, °C)" if x == "metric" else "Imperial (in, psi, °F)",
+        format_func=lambda x: t("sidebar.unit_metric") if x == "metric" else t("sidebar.unit_imperial"),
         help="Girdi ve sonuçlar seçilen birim sistemine göre dönüştürülür (motor daima metric hesaplar).",
     )
     st.session_state["unit_system"] = unit_system
-    st.caption("Teknik parametreler ana ekrandaki **Proje Parametreleri** bölümündedir.")
+
+    st.selectbox(
+        "Dil / Language",
+        ["tr", "en"],
+        index=0 if get_language() == "tr" else 1,
+        format_func=lambda k: LANGUAGE_LABELS.get(k, k),
+        key="lang",
+    )
+
+    st.caption(t("sidebar.hint"))
 
 
 def render_technical_inputs():
     """Ana ekran: teknik girdiler (operasyon, faktörler, tolerans, Hot Tap)."""
     us = UnitSystem(st.session_state.get("unit_system", "metric"))
-    st.header("1. Operasyon ve Dizayn")
+    st.header(t("inputs.h_operations"))
 
     if us.is_metric:
         design_temp = st.number_input(
-            "Tasarım sıcaklığı (°C)",
+            t("inputs.design_temp_c"),
             value=20.0,
             step=5.0,
             help="Minimum metal sıcaklığı (MDMT) ve maksimum işletme sıcaklığı",
         )
     else:
         _design_temp_f = st.number_input(
-            "Tasarım sıcaklığı (°F)",
+            t("inputs.design_temp_f"),
             value=round(temp_c_to_f(20.0), 1),
             step=10.0,
             help="Girilen °F değeri motorda °C'ye çevrilir.",
@@ -61,30 +71,30 @@ def render_technical_inputs():
         design_temp = temp_f_to_c(_design_temp_f)
 
     op_type = st.radio(
-        "İşlem tipi",
+        t("inputs.op_type"),
         ["New Construction", "Hot Tap"],
         help="Yeni imalat mı yoksa basınçlı canlı hat (Hot Tap) mı?",
     )
 
     if us.is_metric:
         c1, c2 = st.columns([2, 1])
-        P_val = c1.number_input("Basınç", value=70.0, step=1.0)
-        P_unit = c2.selectbox("Birim", ["Barg", "MPa", "PSI", "Bara"])
+        P_val = c1.number_input(t("inputs.pressure"), value=70.0, step=1.0)
+        P_unit = c2.selectbox(t("inputs.unit_label"), ["Barg", "MPa", "PSI", "Bara"])
     else:
         # Imperial: psi-g cinsinden giriş; motora PSI birimi ile aktarılır
-        P_val = st.number_input("Basınç (psi-g)", value=1015.0, step=10.0)
+        P_val = st.number_input(t("inputs.pressure_psi"), value=1015.0, step=10.0)
         P_unit = "PSI"
         st.caption("Basınç psi-g olarak girilir; hesaplarda MPa'ya çevrilir.")
 
     st.divider()
-    st.subheader("2. ASME B31.8 Faktörleri")
+    st.subheader(t("inputs.h_factors"))
 
     # Konum Sınıfı ve Tesis Tipi
     loc_list = list(engine.LOCATION_CLASSES.keys())
-    location_class = st.selectbox("Konum Sınıfı (Location Class)", loc_list, index=0)
+    location_class = st.selectbox(t("inputs.location_class"), loc_list, index=0)
 
     facility_list = list(engine.FACILITY_TYPES.keys())
-    facility_type = st.selectbox("Tesis / İmalat Tipi", facility_list, index=0)
+    facility_type = st.selectbox(t("inputs.facility_type"), facility_list, index=0)
 
     # Otomatik F faktörü hesabı
     calc_F, f_warns = engine.evaluate_design_factor(location_class, facility_type)
@@ -110,20 +120,20 @@ def render_technical_inputs():
         st.caption(f"Sıcaklık Düşürme Faktörü: **T = {T_factor}** (Table 841.1.8-1)")
 
     st.divider()
-    st.subheader("3. Tolerans ve Güvenlik")
+    st.subheader(t("inputs.h_tolerance"))
 
     c_ca, c_ang = st.columns(2)
     if us.is_metric:
-        CA_mm = c_ca.number_input("Korozyon Payı (mm)", value=1.5, min_value=0.0, step=0.1)
+        CA_mm = c_ca.number_input(t("inputs.ca_mm"), value=1.5, min_value=0.0, step=0.1)
     else:
         CA_mm = length_in_to_mm(
-            c_ca.number_input("Korozyon Payı (in)", value=0.06, min_value=0.0, step=0.01)
+            c_ca.number_input(t("inputs.ca_in"), value=0.06, min_value=0.0, step=0.01)
         )
-    branch_angle_deg = c_ang.number_input("Branş Açısı (°)", value=90.0, min_value=30.0, max_value=90.0, step=5.0, help="ASME B31.8 Para 831.4.1(l): β < 85° bireysel mühendislik çalışması gerektirir; β < 45° için FEA doğrulaması önerilir (repo yorumu).")
+    branch_angle_deg = c_ang.number_input(t("inputs.angle"), value=90.0, min_value=30.0, max_value=90.0, step=5.0, help="ASME B31.8 Para 831.4.1(l): β < 85° bireysel mühendislik çalışması gerektirir; β < 45° için FEA doğrulaması önerilir (repo yorumu).")
 
     c_tol, c_basis = st.columns(2)
-    mill_tol_percent = c_tol.number_input("Hadde Toleransı (%)", value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L Spec standardı %12.5")
-    thickness_basis = c_basis.selectbox("Kalınlık Bazı", ["nominal", "minimum"], index=0, help="ASME B31.8 / CSA Z662 hesap yaklaşımı")
+    mill_tol_percent = c_tol.number_input(t("inputs.mill_tol"), value=12.5, min_value=0.0, max_value=25.0, step=0.5, help="API 5L Spec standardı %12.5")
+    thickness_basis = c_basis.selectbox(t("inputs.thickness_basis"), ["nominal", "minimum"], index=0, help="ASME B31.8 / CSA Z662 hesap yaklaşımı")
 
     is_sour_service = st.checkbox("Ekşi Gaz Servisi (NACE MR0175 / Sour)", value=False, help="H2S içeren ortam için metalurji ve sertlik kontrolleri")
 

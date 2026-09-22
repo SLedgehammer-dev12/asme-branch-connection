@@ -6,7 +6,7 @@ import os
 import tempfile
 import pytest
 
-from report_pdf import ReportMeta, build_pdf_report, reportlab_available
+from reporting.pdf import ReportMeta, build_pdf_report, reportlab_available
 import fitting_database as db
 
 
@@ -121,7 +121,7 @@ class TestReportPdf:
             assert os.path.exists(out)
 
     def test_reportlab_missing_graceful_fallback(self, monkeypatch):
-        import report_pdf
+        import reporting.pdf as report_pdf
         monkeypatch.setattr(report_pdf, "_REPORTLAB_OK", False)
         meta = ReportMeta(project_name="P", doc_number="D", revision="0")
         res = build_pdf_report(None, meta, "/tmp/dossier.pdf")
@@ -130,7 +130,7 @@ class TestReportPdf:
 
     def test_turkish_font_registered(self):
         """PDF föyü Türkçe karakter için Unicode font kaydetmeli (Helvetica mojibake engeli)."""
-        import report_pdf
+        import reporting.pdf as report_pdf
         assert report_pdf._ensure_tr_fonts() is True, (
             "Türkçe destekli TTF font bulunamadı/kaydedilemedi"
         )
@@ -139,7 +139,7 @@ class TestReportPdf:
 
     def test_pdf_contains_turkish_chars_without_error(self):
         """MÜHENDİSLİK / Branşman / ş-ğ-İ-ı içeren metin PDF'e hatasız yazılır."""
-        import report_pdf
+        import reporting.pdf as report_pdf
         meta = ReportMeta(
             project_name="Yağmur Toplama Hattı — Şube Bağlantısı",
             doc_number="CALC-TR-001",

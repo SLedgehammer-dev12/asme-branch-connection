@@ -17,7 +17,7 @@ from ui.ui_diagram_3d import create_3d_cad_model_figure
 from ui.ui_utils import show_engine_messages, render_trace_block
 from engine_math import compare_scenarios
 from units import UnitSystem
-from report_pdf import ReportMeta, build_pdf_report
+from reporting.pdf import ReportMeta, build_pdf_report
 import fitting_database as db
 
 FITTING_MATERIALS_DB = db.FITTING_MATERIALS_BY_STANDARD

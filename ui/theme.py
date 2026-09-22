@@ -13,6 +13,8 @@ from typing import Dict
 
 import streamlit as st
 
+from i18n import t
+
 try:  # pragma: no cover - bazı ortamlarda config modülü kısıtlı olabilir
     from streamlit import config as _st_config
 except Exception:  # pragma: no cover
@@ -143,16 +145,16 @@ def apply_theme() -> None:
 def render_theme_selector() -> None:
     """Sidebar tema seçicisi (mod + vurgu rengi); değişimde config + rerun."""
     st.divider()
-    st.subheader("🎨 Görünüm")
+    st.subheader(t("theme.title"))
     st.radio(
-        "Tema",
+        t("theme.mode"),
         list(THEME_OPTIONS.keys()),
         format_func=lambda k: THEME_OPTIONS.get(k, k),
         key=_STATE_KEY,
         horizontal=True,
     )
     st.selectbox(
-        "Vurgu rengi",
+        t("theme.accent"),
         list(ACCENTS.keys()),
         format_func=lambda k: ACCENT_LABELS.get(k, k),
         key=_ACCENT_KEY,

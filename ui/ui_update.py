@@ -10,6 +10,7 @@ Sidebar güncelleme kontrolü bölümü.
 import streamlit as st
 
 import update_checker
+from i18n import t
 from version import __version__, __version_label__
 
 _RESULT_KEY = "update_check_result"
@@ -27,11 +28,11 @@ def _run_check(force: bool) -> None:
 def render_update_section() -> None:
     """Sidebar altına güncelleme kontrolü bloğunu render eder."""
     st.divider()
-    st.subheader("🔄 Güncelleme")
-    st.caption(f"Kurulu sürüm: **{__version_label__}**")
+    st.subheader(t("update.title"))
+    st.caption(t("update.installed", version=__version_label__))
 
     enabled = st.checkbox(
-        "Açılışta güncelleme kontrolü",
+        t("update.enable"),
         value=True,
         key=_ENABLED_KEY,
         help="Açılışta GitHub Releases üzerinden yeni sürüm olup olmadığı bir kez kontrol edilir "
@@ -39,7 +40,7 @@ def render_update_section() -> None:
     )
 
     manual = st.button(
-        "Güncellemeleri kontrol et",
+        t("update.check"),
         use_container_width=True,
         key="update_check_btn",
     )
@@ -69,10 +70,10 @@ def render_update_section() -> None:
 
     status = result.get("status")
     if status == "update_available":
-        st.success(f"🎉 Yeni sürüm mevcut: **v{result.get('latest')}**")
+        st.success(t("update.available", version=result.get("latest")))
         if result.get("release_url"):
             st.link_button(
-                "📝 Sürüm notları",
+                t("update.release_notes"),
                 result["release_url"],
                 use_container_width=True,
             )
@@ -83,5 +84,5 @@ def render_update_section() -> None:
                 use_container_width=True,
             )
     elif status == "up_to_date":
-        st.caption("✅ En son sürümü kullanıyorsunuz.")
+        st.caption(t("update.up_to_date"))
     # status == "error" → sessiz (offline/rate-limit)

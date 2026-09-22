@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import copy_metadata
 
 streamlit_dir = os.path.dirname(streamlit.__file__)
 
-datas = [(streamlit_dir, 'streamlit'), ('app.py', '.'), ('engine.py', '.'), ('engine_math.py', '.'), ('engine_contracts.py', '.'), ('units.py', '.'), ('report_pdf.py', '.'), ('version.py', '.'), ('update_checker.py', '.'), ('cad_svg.py', '.'), ('fitting_database.py', '.'), ('assets', 'assets'), ('logs', 'logs'), ('data', 'data'), ('ui', 'ui'), ('.streamlit', '.streamlit')]
+datas = [(streamlit_dir, 'streamlit'), ('app.py', '.'), ('engine.py', '.'), ('engine_math.py', '.'), ('engine_contracts.py', '.'), ('units.py', '.'), ('report_pdf.py', '.'), ('reporting', 'reporting'), ('version.py', '.'), ('update_checker.py', '.'), ('cad_svg.py', '.'), ('i18n.py', '.'), ('locales', 'locales'), ('fitting_database.py', '.'), ('assets', 'assets'), ('logs', 'logs'), ('data', 'data'), ('ui', 'ui'), ('.streamlit', '.streamlit')]
 datas += copy_metadata('streamlit')
 datas += copy_metadata('plotly')
 
@@ -17,7 +17,7 @@ a = Analysis(
     datas=datas,
     hiddenimports=[
         'streamlit', 'engine', 'engine_math', 'engine_contracts', 'units',
-        'report_pdf', 'version', 'update_checker', 'certifi', 'cad_svg', 'reportlab', 'reportlab.platypus',
+        'report_pdf', 'reporting', 'reporting.html', 'reporting.pdf', 'version', 'update_checker', 'certifi', 'cad_svg', 'i18n', 'reportlab', 'reportlab.platypus',
         'reportlab.lib.pagesizes', 'fitting_database', 'altair', 'pandas',
         'plotly', 'plotly.graph_objects', 'plotly.express',
         'logs.logbook_manager', 'ui.ui_decision_matrix',

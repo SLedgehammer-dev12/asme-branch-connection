@@ -380,6 +380,25 @@ Acik kalanlar:
 Bir sonraki adim:
 - Faz E (mimari): HTML raporunu motordan ayirma + i18n (v3.8.0).
 
+### 2026-09-22 (6) - v3.8.0: raporlama katmani ayrildi + i18n
+
+Yapilanlar (Faz E):
+- **E1 - Raporlama katmani:** `generate_html_report` govdesi (309 satir) `engine.py`'den cikarildi → **`reporting/html.py`** (`build_html_report(ctx, run, branch, res, ...)`, engine duck-typing ile ctx olarak gecirilir). `report_pdf.py` → **`reporting/pdf.py`**; kok `report_pdf.py` geriye uyumlu shim (public API re-export). `ui/ui_analysis.py` yeni modulu kullaniyor. `engine.generate_html_report` ince sarmalayici (geriye uyumluluk).
+- **E2 - i18n:** **`i18n.py`** (`t()`, `get_language()`, `set_language()`, JSON yukleme, TR'ye geri dusus, `sys._MEIPASS` uyumlu); **`locales/tr.json`** + **`locales/en.json`** (app/inputs/sidebar/theme/update/report anahtarlari); sidebar'a **Dil / Language** secici. app.py, ui_inputs, ui_update, ui/theme ana metinleri `t()` uzerinden.
+- **Paketleme:** `build_exe.py` + `*.spec`'e `reporting/`, `i18n.py`, `locales/` eklendi.
+
+Dogrulama:
+- `python -m pytest tests/ -q`: **388/388 PASSED** (+6 i18n testi).
+- AppTest smoke: EN + dark + imperial + tam akis (step 1→2→3) → header'lar Ingilizce, sonuc uretiliyor, exception yok.
+- Rapor: `reporting.html.build_html_report` dogrudan cagri + `engine` wrapper esdeger; HTML'de gomulu SVG.
+
+Acik kalanlar:
+- i18n ilk faz: app/inputs/sidebar/theme/update/report anahtarlari cevrildi; motor mesajlari ve derin teknik metinler Turkce (sozluk genisletilerek tamamlanacak).
+- EXE/paket yeniden derlenmeli ve `v3.8.0` tag ile release tetiklenmeli.
+
+Bir sonraki adim:
+- i18n sozluklerini genisletmek (engine mesajlari + rapor govdesi) ve kalan UI metinlerini tasimak.
+
 ## Update Template
 
 Yeni oturum sonunda asagidaki format kullanilabilir:
