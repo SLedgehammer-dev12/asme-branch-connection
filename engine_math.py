@@ -475,69 +475,164 @@ def evaluate_hot_tap_flow_and_cooling(
     }
 
 
-def evaluate_split_tee_design(
-    split_type: str = "Type B",
-    sleeve_wt_mm: float = 0.0,
-    t_req_h_mm: float = 0.0,
-    branch_od_mm: float = 0.0,
-    run_od_mm: float = 0.0,
-    d_opening_mm: float = 0.0,
+def evaluate_complete_encirclement_reinforcement(
+    d_mm: float,
+    t_h_mm: float,
+    wt_h_net_mm: float,
+    wt_b_net_mm: float,
+    t_b_mm: float,
+    header_nominal_wt_mm: float,
+    branch_nominal_wt_mm: float,
+    sleeve_wt_mm: float,
+    sleeve_length_mm: float,
+    f_branch: float = 1.0,
+    f_sleeve: float = 1.0,
+    weld_area_mm2: float = 0.0,
 ) -> Dict[str, Any]:
     """
-    Full Encirclement Split Tee tasarım kontrolü.
+    ASME B31.8-2025 Para 831.4.1 + Mandatory Appendix F (Fig. F-2.1.5-1).
 
-    Type B (pressure-containing): manşon (sleeve) basıncı taşır; manşon et
-    kalınlığı ana hat gerekli kalınlığından az olmamalıdır (T_sleeve >= t_req_h).
+    Complete encirclement (tam kuşatma) takviye alanı yöntemi. Manşon takviye
+    elemanı olarak değerlendirilir; taşıyıcı borunun manşon altındaki metali
+    takviye sayılmaz (Mandatory Appendix I, Fig. I-1.1-3 not 1).
 
-    Type A (reinforcing): manşon takviye elemanıdır; ana hat birincil basınç
-    taşıyıcıdır, T_sleeve >= t_req_h önerilir.
+        A_R     = d * t
+        A1      = (H - t) * d
+        A2      = 2 * (B - t_b) * L * f_branch
+        A4      = t_sleeve * (min(L_sleeve, 2d) - d) * f_sleeve
+        A_avail = A1 + A2 + A3(kaynak) + A4
 
-    ASME B31.8 Para 831.4.2(h) ve ASME PCC-2 kapsamındaki mühendislik yorumudur;
-    normatif onay için lisanslı standart kopyaları ile doğrulanmalıdır.
+    d = açıklık uzunluğu (koşu eksenine paralel) ile branşman iç çapından büyük olanı.
+    L = takviye bölgesi yüksekliği = min(2.5*T_header, 2.5*T_branch + t_sleeve).
+
+    Normatif değerler lisanslı ASME B31.8-2025 kopyası ile doğrulanmalıdır.
     """
-    stype = "Type B" if "B" in (split_type or "B").upper() else "Type A"
+    d = max(0.0, d_mm or 0.0)
+    t_h = max(0.0, t_h_mm or 0.0)
+    H = max(0.0, wt_h_net_mm or 0.0)
+    B = max(0.0, wt_b_net_mm or 0.0)
+    t_b = max(0.0, t_b_mm or 0.0)
+    T_h = max(0.0, header_nominal_wt_mm or 0.0)
+    T_b = max(0.0, branch_nominal_wt_mm or 0.0)
     t_s = max(0.0, sleeve_wt_mm or 0.0)
-    t_req = max(0.0, t_req_h_mm or 0.0)
-    branch_od = max(0.0, branch_od_mm or 0.0)
-    run_od = max(0.0, run_od_mm or 0.0)
-    d_open = max(0.0, d_opening_mm or 0.0)
+    L_s = max(0.0, sleeve_length_mm or 0.0)
 
-    thickness_ok = t_s >= t_req
-    pressure_containing = stype == "Type B"
+    A_R = d * t_h
+    A1 = max(0.0, H - t_h) * d
 
-    # Minimum manşon boyu (repo heuristic): deliğin her iki yanında branşman
-    # çapının yarısından az olmayacak şekilde uzanmalıdır.
-    if d_open > 0.0:
-        min_length = d_open + 2.0 * max(75.0, branch_od / 2.0)
+    if T_h > 0.0 and T_b > 0.0:
+        L_zone = min(2.5 * T_h, 2.5 * T_b + t_s)
+    elif T_h > 0.0:
+        L_zone = 2.5 * T_h
     else:
-        min_length = max(200.0, 2.0 * branch_od)
+        L_zone = 2.5 * T_b + t_s
+    A2 = 2.0 * max(0.0, B - t_b) * L_zone * max(0.0, f_branch)
 
-    adequacy = thickness_ok
-    if not thickness_ok:
-        status = "YETERSİZ - T_sleeve >= t_req_h sağlanmalı"
-        msg = (f"Manşon et kalınlığı {t_s:.2f} mm < gerekli {t_req:.2f} mm. "
-               f"{'Type B (basınç taşıyan)' if pressure_containing else 'Type A (takviye)'} "
-               f"için manşon kalınlığı gerekli kalınlığa yükseltilmelidir.")
-    else:
-        status = "UYGUN"
-        msg = (f"Manşon et kalınlığı {t_s:.2f} mm >= gerekli {t_req:.2f} mm. "
-               f"{'Type B (basınç taşıyan) manşon' if pressure_containing else 'Type A takviye manşonu'} "
-               f"kalınlık açısından yeterlidir.")
+    # Takviye bölgesi uzunluğu: merkez hattının her iki yanında d (toplam 2d)
+    zone_length = 2.0 * d
+    member_eff_len = max(0.0, min(L_s, zone_length) - d) if L_s > 0.0 else max(0.0, zone_length - d)
+    A4 = t_s * member_eff_len * max(0.0, f_sleeve)
+
+    A3 = max(0.0, weld_area_mm2 or 0.0)
+    A_avail = A1 + A2 + A3 + A4
+    Missing = max(0.0, A_R - A_avail)
 
     return {
-        "split_type": stype,
-        "T_sleeve_mm": round(t_s, 3),
-        "t_req_h_mm": round(t_req, 3),
-        "pressure_containing": pressure_containing,
-        "thickness_pass": thickness_ok,
-        "min_sleeve_length_mm": round(min_length, 1),
-        "adequate": adequacy,
-        "status": status,
-        "recommendation": (
-            f"{msg} Önerilen minimum manşon boyu ≈ {min_length:.0f} mm "
-            f"(delik çapı {d_open:.0f} mm + her iki yanda takviye boyu). "
-            f"Boyuna kaynak kök desteği (backing strip) ve boyun takviyesi ASME PCC-2 gereği değerlendirilmelidir."
-        ),
+        "method": "complete_encirclement_area",
+        "d_mm": round(d, 3),
+        "A_R": round(A_R, 2),
+        "A1": round(A1, 2),
+        "A2": round(A2, 2),
+        "A3": round(A3, 2),
+        "A4": round(A4, 2),
+        "A_avail": round(A_avail, 2),
+        "Missing": round(Missing, 2),
+        "L_zone_mm": round(L_zone, 3),
+        "zone_length_mm": round(zone_length, 3),
+        "member_length_effective_mm": round(member_eff_len, 3),
+        "pass": A_avail >= A_R,
+        "clause": "ASME B31.8-2025 Para 831.4.1(b)-(g) ve Mandatory Appendix F (Fig. F-2.1.5-1)",
+    }
+
+
+def evaluate_pressurized_hot_tap_sleeve(
+    P_mpa: float,
+    sleeve_od_mm: float,
+    pipe_wall_mm: float,
+    sleeve_smys_mpa: float,
+    F: float = 0.72,
+    E: float = 0.80,
+    T: float = 1.0,
+    gap_mm: float = 0.0,
+    end_face_mm: Optional[float] = None,
+    chamfer_deg: float = 45.0,
+) -> Dict[str, Any]:
+    """
+    ASME B31.8-2025 Para 831.4.2(j) + Mandatory Appendix I, Fig. I-1.1-4.
+
+    Basınçlı hot tap tee takviye manşonu uç kaynak ve uç yüz tasarımı. Manşon
+    basınç tutar ve hot tap/plugging ekipmanından ilave yük alır:
+      - Uç fillet kaynak bacağı: 1.0t + gap ... 1.4t + gap (t = boru cidarı)
+      - Etkin kaynak boğazı: 0.7t ... 1.0t
+      - Uç yüz: <= 1.4 * manşonun hoop gerilmesi için gereken kalınlık
+      - Pah/bevel/chamfer: yaklaşık >= 45 derece
+
+    Manşon hoop kalınlığı manşon malzemesinin izin verilen gerilmesiyle
+    hesaplanır (E = 0.80 repo varsayımı; %100 UT ile E = 1.0 olabilir).
+    Normatif değerler lisanslı ASME B31.8-2025 kopyası ile doğrulanmalıdır.
+    """
+    P = max(0.0, P_mpa or 0.0)
+    t = max(0.0, pipe_wall_mm or 0.0)
+    D_s = max(1e-6, sleeve_od_mm or 0.0)
+    gap = max(0.0, gap_mm or 0.0)
+    S_s = max(0.0, sleeve_smys_mpa or 0.0)
+    S_allow = S_s * max(0.0, F) * max(0.0, E) * max(0.0, T)
+    t_hoop = (P * D_s) / (2.0 * S_allow) if S_allow > 0.0 else 0.0
+
+    end_face_limit = 1.4 * t_hoop
+    leg_min = 1.0 * t + gap
+    leg_max = 1.4 * t + gap
+    throat_min = 0.7 * t
+    throat_max = 1.0 * t
+
+    face_ok = True if end_face_mm is None else (max(0.0, end_face_mm) <= end_face_limit + 1e-9)
+    chamfer_ok = chamfer_deg >= 45.0 - 1e-9
+    passed = face_ok and chamfer_ok
+
+    if not face_ok:
+        msg = (
+            f"Uç yüz kalınlığı ({end_face_mm:.2f} mm), 1.4 × hoop kalınlığı sınırını "
+            f"({end_face_limit:.2f} mm) aşıyor; pah/inceltme yapılmalıdır."
+        )
+    elif not chamfer_ok:
+        msg = "Pah/bevel açısı yaklaşık 45 dereceden küçük; 831.4.2(j)(3) sağlanmıyor."
+    else:
+        msg = (
+            f"Uç fillet kaynak bacağı {leg_min:.2f}–{leg_max:.2f} mm, etkin boğaz "
+            f"{throat_min:.2f}–{throat_max:.2f} mm; uç yüz ≤ {end_face_limit:.2f} mm. "
+            "831.4.2(j) uç kaynak/uç yüz tasarımı sağlanıyor."
+        )
+
+    return {
+        "method": "pressurized_hot_tap_sleeve",
+        "t_hoop_mm": round(t_hoop, 3),
+        "S_allowable_MPa": round(S_allow, 3),
+        "end_face_limit_mm": round(end_face_limit, 3),
+        "end_face_mm": (round(end_face_mm, 3) if end_face_mm is not None else None),
+        "end_fillet_leg_min_mm": round(leg_min, 3),
+        "end_fillet_leg_max_mm": round(leg_max, 3),
+        "effective_throat_min_mm": round(throat_min, 3),
+        "effective_throat_max_mm": round(throat_max, 3),
+        "chamfer_deg": chamfer_deg,
+        "gap_mm": gap,
+        "sleeve_od_mm": D_s,
+        "E_factor": E,
+        "face_ok": face_ok,
+        "chamfer_ok": chamfer_ok,
+        "pass": passed,
+        "status": "UYGUN" if passed else "YETERSİZ",
+        "recommendation": msg,
+        "clause": "ASME B31.8-2025 Para 831.4.2(j)(1)-(3) ve Mandatory Appendix I, Fig. I-1.1-4",
     }
 
 

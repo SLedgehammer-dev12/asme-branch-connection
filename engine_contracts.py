@@ -60,7 +60,7 @@ class DesignInput:
     branch_angle_deg: float = 90.0
     mill_tol_percent: float = 12.5
     thickness_basis: str = "nominal"
-    d_hole_type: str = "OD"
+    d_hole_type: str = "ID"
     run: PipeSpecification = field(default_factory=PipeSpecification)
     branch: PipeSpecification = field(default_factory=PipeSpecification)
     is_sour_service: bool = False

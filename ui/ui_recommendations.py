@@ -18,7 +18,8 @@ from ui.ui_decision_matrix import (
 def render_step1_recommendations(
     P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data,
     mill_tol_percent=12.5, thickness_basis="nominal", branch_angle_deg=90.0,
-    location_class=None, facility_type=None, seam_type=None, is_sour_service=False
+    location_class=None, facility_type=None, seam_type=None, is_sour_service=False,
+    d_hole_type="ID"
 ):
     """Aşama 1: Karar matrisi önerilerini render eder."""
     if st.button("AŞAMA 1: Tavsiyeleri al (çözüm matrisi)", type="primary", use_container_width=True):
@@ -44,11 +45,11 @@ def render_step1_recommendations(
                 T=T_factor,
                 CA_mm=CA_mm,
                 op_type=op_type,
-                weld_legs=0.0,
+                weld_legs={"inner": 0.0, "outer": 0.0},
                 pad_props={"has_pad": False},
                 design_temp=design_temp,
                 fitting_smys=240.0,
-                d_hole_type="OD",
+                d_hole_type=d_hole_type,
                 mill_tol_percent=mill_tol_percent,
                 thickness_basis=thickness_basis,
                 branch_angle_deg=branch_angle_deg,
@@ -80,6 +81,7 @@ def render_step1_recommendations(
                     "facility_type": facility_type,
                     "seam_type": seam_type,
                     "is_sour_service": is_sour_service,
+                    "d_hole_type": d_hole_type,
                 }
                 st.session_state.run_data = run_data
                 st.session_state.branch_data = branch_data
@@ -90,10 +92,12 @@ def render_step1_recommendations(
 def render_step2_recommendations(
     P_val, P_unit, F, E, T_factor, CA_mm, op_type, design_temp, run_data, branch_data,
     mill_tol_percent=12.5, thickness_basis="nominal", branch_angle_deg=90.0,
-    location_class=None, facility_type=None, seam_type=None, is_sour_service=False
+    location_class=None, facility_type=None, seam_type=None, is_sour_service=False,
+    hot_tap_flow_ms=None, hot_tap_fluid="gas", hot_tap_d_pen_mm=2.0,
+    sleeve_pressure_containing=True, d_hole_type="ID"
 ):
     """Aşama 2: Karar matrisi sonuçlarını tekrar render eder."""
-    st.success("✅ Aşama 1 tamamlandı. Hat ve stres profili yeterli.")
+    st.success("✅ Aşama 1 tamamlandı.")
 
     col_back, _ = st.columns([1, 5])
     with col_back:
@@ -157,12 +161,25 @@ def render_step2_recommendations(
         "facility_type": facility_type,
         "seam_type": seam_type,
         "is_sour_service": is_sour_service,
+        "hot_tap_flow_ms": hot_tap_flow_ms,
+        "hot_tap_fluid": hot_tap_fluid,
+        "hot_tap_d_pen_mm": hot_tap_d_pen_mm,
+        "sleeve_pressure_containing": sleeve_pressure_containing,
+        "d_hole_type": d_hole_type,
     }
 
     if dm_res["status"] == "FAIL":
         for error_text in dm_res["errors"]:
             st.error(f"❌ {error_text}")
         st.stop()
+
+    if dm_res.get("status") == "WARNING":
+        for warn_text in [m.get("text", "") for m in dm_res.get("messages", []) if m.get("level") == "warning"]:
+            st.warning(f"⚠️ {warn_text}")
+        st.warning(
+            "⚠️ **Basınç Dayanımı Yetersiz (WARNING):** Ana hat ve/veya branşman net et kalınlığı gerekli "
+            "Barlow kalınlığının altındadır. Hesaplama bilgilendirme amaçlı sürdürüldü; tasarım standarda uygun DEĞİLDİR."
+        )
 
     st.subheader("1. Karar Matrisi Analizi")
     

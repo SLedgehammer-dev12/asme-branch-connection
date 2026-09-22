@@ -143,12 +143,16 @@ class TestEngineFacadeAndAnalyzeBranches:
         d = eng.get_fitting_details("FULL ENCIRCLEMENT SLEEVE", "24", "API 5L", "10", "24")
         assert d["Dimensions"]["Length"] != ""
 
-    def test_analyze_fail_when_run_pressure_insufficient(self):
+    def test_analyze_warning_when_run_pressure_insufficient(self):
+        # Basınç dayanımı yetersizliği artık hesaplamayı durdurmaz; WARNING ile devam eder.
         eng = self._make_engine(P_val=120.0)
         run = {"OD_mm": 609.6, "WT_mm": 8.0, "SMYS_MPa": 360.0, "NPS": "24"}
         branch = {"OD_mm": 273.0, "WT_mm": 9.3, "SMYS_MPa": 245.0, "NPS": "10"}
         res = eng.analyze(run, branch)
-        assert res["status"] == "FAIL"
+        assert res["status"] == "WARNING"
+        assert res["Pressure_Adequate"] is False
+        assert res["A_req"] > 0.0
+        assert any("basinc dayanimi yetersiz" in m["text"] for m in res["messages"])
 
     def test_analyze_a1_zero_new_construction(self):
         # wt_h_net == t_req_h olduğunda A1=0 dalı (yuvarlama yapılmadan eşitlik korunur)
@@ -361,7 +365,8 @@ class TestDecisionMatrixTraceBranches:
         )
         assert len(recs) >= 1
 
-    def test_decision_matrix_wall_insufficient_error(self):
+    def test_decision_matrix_wall_insufficient_warning(self):
+        # Net cidar > 0 ama basınç dayanımı yetersiz -> WARNING + devam (Recommendations dolu).
         eng = PipelineExpertEngine(
             P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=10.0,
             op_type="New Construction", weld_legs={"inner": 5.0, "outer": 5.0},
@@ -370,7 +375,9 @@ class TestDecisionMatrixTraceBranches:
         run = {"OD_mm": 609.6, "WT_mm": 12.0, "SMYS_MPa": 360.0, "NPS": "24"}
         branch = {"OD_mm": 273.0, "WT_mm": 12.0, "SMYS_MPa": 245.0, "NPS": "10"}
         res = eng.evaluate_decision_matrix(run, branch)
-        assert res["status"] == "FAIL"
+        assert res["status"] == "WARNING"
+        assert res["Pressure_Adequate"] is False
+        assert len(res["Recommendations"]) >= 1
 
     def test_decision_matrix_negative_net_wall(self):
         eng = PipelineExpertEngine(

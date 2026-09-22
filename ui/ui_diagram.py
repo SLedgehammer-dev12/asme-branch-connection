@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer V3.6.0
+ASME B31.8 Pipeline Designer
 Dinamik ve Gerçekçi 2D CAD Kesit Çizimi (CAD Engineering Cross-Section Diagram)
 Boru eğriliği, açılı (lateral) branşman geometrisi, gerçekçi kaynak dikişi profilleri ve CAD ölçülendirme.
 """
@@ -36,12 +36,23 @@ def create_cross_section_figure(
     analysis_res: Dict[str, Any],
     pad_props: Optional[Dict[str, Any]] = None,
     weld_legs: Optional[Dict[str, Any]] = None,
-    branch_angle_deg: float = 90.0
+    branch_angle_deg: float = 90.0,
+    fitting_type: Optional[str] = None,
+    d_hole_type: Optional[str] = None,
+    op_type: str = "New Construction",
 ) -> go.Figure:
     """
     ASME B31.8 ve API 5L boru geometrisini gerçekçi 2D CAD kesit formatında çizer.
+    Fitting tipine göre A4/weep/gösterim ayarlanır (REINFORCING PAD vs SLEEVE/SPLIT TEE/SADDLE).
     """
     fig = go.Figure()
+
+    ftype = (fitting_type or "").upper()
+    is_sleeve_f = ("SPLIT TEE" in ftype) or ("FULL ENCIRCLEMENT" in ftype) or (
+        "SLEEVE" in ftype and "SADDLE" not in ftype
+    )
+    is_saddle_f = "SADDLE" in ftype
+    is_pad_f = ("REINFORCING PAD" in ftype) or (not is_sleeve_f and not is_saddle_f and "PAD" in ftype)
 
     # Geometrik parametreler
     run_od = float(run_data.get("OD_mm", 609.6))
@@ -60,13 +71,21 @@ def create_cross_section_figure(
     cos_beta = math.cos(beta_rad)
 
     d_hole = float(analysis_res.get("d_hole", branch_od / sin_beta))
+    d_hole_basis = str(analysis_res.get("d_hole_basis") or d_hole_type or "")
     L_eff = float(analysis_res.get("L_eff", 2.5 * wt_h_net))
+    min_welds = analysis_res.get("min_welds") or {}
+    is_exempt = bool(analysis_res.get("is_exempt", False))
+    A4 = float(analysis_res.get("A4", 0.0) or 0.0)
 
+    # Sleeve tipinde D_pad = manşon boyu; pad tipinde D_pad = ped dış çapı
     pad_props = pad_props or {}
     has_pad = pad_props.get("has_pad", False)
     t_pad = float(pad_props.get("T_pad", 0.0)) if has_pad else 0.0
     d_pad = float(pad_props.get("D_pad", branch_od * 1.6)) if has_pad else branch_od
     w_p = float(analysis_res.get("W_p", (d_pad - branch_od) / 2.0)) if has_pad else 0.0
+
+    # Weep hole: yalnız REINFORCING PAD (kapalı ped) — sleeve/saddle'da yok
+    show_weep = bool(has_pad and t_pad > 0 and (is_pad_f or (not is_sleeve_f and not is_saddle_f and ftype == "")))
 
     weld_legs = weld_legs or {"inner": 6.0, "outer": 6.0}
     w_inner = float(weld_legs.get("inner", 6.0))
@@ -236,24 +255,29 @@ def create_cross_section_figure(
             hovertext=f"A2 = {analysis_res.get('A2', 0):.1f} mm²"
         ))
 
-    # A4: Takviye Pedi (Reinforcing Pad / Saddle - Turuncu)
+    # A4: Takviye Pedi / Manşon (Appendix F bölge) — Turuncu
     if has_pad and t_pad > 0:
         r_pad_out = r_h_out + t_pad
-        # Sol Pad Yayları
+        # Sol Yaylar
         x_pad_l, y_pad_l_top = _generate_arc_points(r_pad_out, y_center_h, -d_pad/2.0, -r_b_out/sin_beta, 30)
         _, y_pad_l_bot = _generate_arc_points(r_h_out, y_center_h, -d_pad/2.0, -r_b_out/sin_beta, 30)
 
+        pad_label = "Manşon (Sleeve)" if (is_sleeve_f or is_saddle_f) else "Takviye Pedi"
+        pad_hover = (
+            f"A4 = {A4:.1f} mm² ({pad_label}: T = {t_pad:.1f} mm, "
+            + (f"boy = {d_pad:.1f} mm)" if (is_sleeve_f or is_saddle_f) else f"D_pad = {d_pad:.1f} mm)")
+        )
         fig.add_trace(go.Scatter(
             x=x_pad_l + x_pad_l[::-1] + [x_pad_l[0]],
             y=y_pad_l_top + y_pad_l_bot[::-1] + [y_pad_l_top[0]],
             fill="toself", fillcolor="rgba(234, 88, 12, 0.85)",
             line=dict(color="#C2410C", width=2),
-            name=f"A4: Takviye Pedi ({analysis_res.get('A4', 0):.0f} mm²)",
+            name=f"A4: {pad_label} ({A4:.0f} mm²)",
             hoverinfo="text",
-            hovertext=f"A4 = {analysis_res.get('A4', 0):.1f} mm² (T_pad = {t_pad:.1f} mm, D_pad = {d_pad:.1f} mm)"
+            hovertext=pad_hover
         ))
 
-        # Sağ Pad Yayları
+        # Sağ Yaylar
         x_pad_r, y_pad_r_top = _generate_arc_points(r_pad_out, y_center_h, r_b_out/sin_beta, d_pad/2.0, 30)
         _, y_pad_r_bot = _generate_arc_points(r_h_out, y_center_h, r_b_out/sin_beta, d_pad/2.0, 30)
 
@@ -264,40 +288,56 @@ def create_cross_section_figure(
             line=dict(color="#C2410C", width=2),
             showlegend=False,
             hoverinfo="text",
-            hovertext=f"A4 = {analysis_res.get('A4', 0):.1f} mm²"
+            hovertext=pad_hover
         ))
 
-        # Weep Hole (Vent Deliği)
-        wh_x = d_pad / 3.0
-        wh_y = y_center_h + math.sqrt(max(0.0, (r_h_out + t_pad/2.0)**2 - wh_x**2))
-        fig.add_trace(go.Scatter(
-            x=[wh_x], y=[wh_y],
-            mode="markers+text",
-            marker=dict(size=8, color="#0F172A", line=dict(color="#FDE047", width=2)),
-            text=["Weep Hole (Vent)"],
-            textposition="top right",
-            name="Vent Deliği (Weep Hole)",
-            hoverinfo="text",
-            hovertext="Takviye Pedi Gaz Tahliye Deliği (Weep Hole - ASME B31.8 831.4.1(c))"
-        ))
+        # Weep Hole (Vent Deliği) — yalnız REINFORCING PAD
+        if show_weep:
+            wh_x = d_pad / 3.0
+            wh_y = y_center_h + math.sqrt(max(0.0, (r_h_out + t_pad/2.0)**2 - wh_x**2))
+            fig.add_trace(go.Scatter(
+                x=[wh_x], y=[wh_y],
+                mode="markers+text",
+                marker=dict(size=8, color="#0F172A", line=dict(color="#FDE047", width=2)),
+                text=["Weep Hole (Vent)"],
+                textposition="top right",
+                name="Vent Deliği (Weep Hole)",
+                hoverinfo="text",
+                hovertext="Takviye Pedi Gaz Tahliye Deliği (Weep Hole - ASME B31.8 831.4.1(c))"
+            ))
 
-    # A3: Kaynak Dikişleri (Fillet Welds - Mor)
+        # Appendix F 2d manşon bölge şeridi (sleeve/split tee)
+        if is_sleeve_f:
+            fig.add_trace(go.Scatter(
+                x=[-d_pad / 2.0, d_pad / 2.0],
+                y=[y_center_h + r_h_out + t_pad + 8.0] * 2,
+                mode="lines+text",
+                line=dict(color="#0E7490", width=2, dash="dash"),
+                text=["", f"Manşon boyu L = {d_pad:.0f} mm (Appendix F: 2d)"],
+                textposition="top center",
+                name="Appendix F Manşon Bölgesi (2d)",
+                hoverinfo="text",
+                hovertext=f"Appendix F manşon bölgesi: L = {d_pad:.0f} mm (2 × d_hole = {2 * d_hole:.0f} mm)"
+            ))
+
+    # A3: Kaynak Dikişleri (Fillet Welds - Mor) — üçgen fillet profili
     # Sol İç Kaynak (Branch-to-Pad/Header)
     w_base_y = y_b_l_bot + (t_pad if has_pad else 0.0)
     fig.add_trace(go.Scatter(
-        x=[x_b_l_bot - w_inner, x_b_l_bot, x_b_l_bot, x_b_l_bot - w_inner],
-        y=[w_base_y, w_base_y, w_base_y + w_inner, w_base_y],
+        x=[x_b_l_bot - w_inner, x_b_l_bot, x_b_l_bot],
+        y=[w_base_y, w_base_y, w_base_y + w_inner],
         fill="toself", fillcolor="rgba(147, 51, 234, 0.85)",
         line=dict(color="#7E22CE", width=1.5),
         name=f"A3: Kaynak Dikişi ({analysis_res.get('A3', 0):.0f} mm²)",
         hoverinfo="text",
         hovertext=f"A3 Kaynak Alanı = {analysis_res.get('A3', 0):.1f} mm² (Bacak = {w_inner:.1f} mm)"
+        + (f" | Min W1 = {min_welds.get('W1_min', 0):.1f} mm (Fig. I-1.1-1)" if min_welds.get("W1_min") else "")
     ))
     # Sağ İç Kaynak
     w_base_yr = y_b_r_bot + (t_pad if has_pad else 0.0)
     fig.add_trace(go.Scatter(
-        x=[x_b_r_bot, x_b_r_bot + w_inner, x_b_r_bot, x_b_r_bot],
-        y=[w_base_yr, w_base_yr, w_base_yr + w_inner, w_base_yr],
+        x=[x_b_r_bot, x_b_r_bot + w_inner, x_b_r_bot],
+        y=[w_base_yr, w_base_yr, w_base_yr + w_inner],
         fill="toself", fillcolor="rgba(147, 51, 234, 0.85)",
         line=dict(color="#7E22CE", width=1.5),
         showlegend=False,
@@ -305,14 +345,14 @@ def create_cross_section_figure(
         hovertext=f"A3 Kaynak Alanı = {analysis_res.get('A3', 0):.1f} mm²"
     ))
 
-    # Dış Pad Kaynağı (Varsa)
+    # Dış Pad Kaynağı (Varsa) — üçgen fillet
     if has_pad and w_outer > 0:
         # Sol Pad Dış Kaynak
         x_pw_l = -d_pad / 2.0
         y_pw_l = y_center_h + math.sqrt(max(0.0, r_h_out**2 - x_pw_l**2))
         fig.add_trace(go.Scatter(
-            x=[x_pw_l - w_outer, x_pw_l, x_pw_l, x_pw_l - w_outer],
-            y=[y_pw_l, y_pw_l, y_pw_l + t_pad, y_pw_l],
+            x=[x_pw_l - w_outer, x_pw_l, x_pw_l],
+            y=[y_pw_l, y_pw_l, y_pw_l + t_pad],
             fill="toself", fillcolor="rgba(147, 51, 234, 0.85)",
             line=dict(color="#7E22CE", width=1.5),
             showlegend=False,
@@ -323,8 +363,8 @@ def create_cross_section_figure(
         x_pw_r = d_pad / 2.0
         y_pw_r = y_center_h + math.sqrt(max(0.0, r_h_out**2 - x_pw_r**2))
         fig.add_trace(go.Scatter(
-            x=[x_pw_r, x_pw_r + w_outer, x_pw_r, x_pw_r],
-            y=[y_pw_r, y_pw_r, y_pw_r + t_pad, y_pw_r],
+            x=[x_pw_r, x_pw_r + w_outer, x_pw_r],
+            y=[y_pw_r, y_pw_r, y_pw_r + t_pad],
             fill="toself", fillcolor="rgba(147, 51, 234, 0.85)",
             line=dict(color="#7E22CE", width=1.5),
             showlegend=False,
@@ -346,19 +386,20 @@ def create_cross_section_figure(
         hovertext=f"Branşman Eksen Açısı = {beta_deg:.1f}°"
     ))
 
-    # d_hole Ölçü Çizgisi
+    # d_hole Ölçü Çizgisi (ID/OD tabanı etiketli)
     y_dim_d = y_center_h + r_h_out + 10.0
+    d_label = f"d = {d_hole:.1f} mm" + (f" ({d_hole_basis})" if d_hole_basis else "")
     fig.add_trace(go.Scatter(
         x=[-r_hole, r_hole],
         y=[y_dim_d, y_dim_d],
         mode="lines+markers+text",
         line=dict(color="#0284C7", width=1.8),
         marker=dict(symbol="arrow-bar-up", size=8),
-        text=[f"d = {d_hole:.1f} mm", ""],
+        text=[d_label, ""],
         textposition="top center",
         name="d (Delik Çapı)",
         hoverinfo="text",
-        hovertext=f"ASME B31.8 Delik Çapı: d = {d_hole:.1f} mm"
+        hovertext=f"ASME B31.8 Para 831.4.1(c) Delik Çapı: {d_label}"
     ))
 
     # L_eff Yükseklik Sınırı Çizgisi
@@ -378,7 +419,13 @@ def create_cross_section_figure(
     # -------------------------------------------------------------
     fig.update_layout(
         title=dict(
-            text=f"<b>2D CAD Kesit ve Alan Telafisi Diyagramı</b> (ASME B31.8 Fig. F-1 / I-4) — Açı: {beta_deg:.1f}°",
+            text=(
+                f"<b>2D CAD Kesit ve Alan Telafisi Diyagramı</b> "
+                f"(ASME B31.8-2025 Appendix F / Fig. I-1.1-1) — Açı: {beta_deg:.1f}°"
+                + (f" | {fitting_type}" if fitting_type else "")
+                + (" | 831.4.2(j)" if (op_type == "Hot Tap" and is_sleeve_f) else "")
+                + (" | Muaf 831.4.2" if is_exempt else "")
+            ),
             font=dict(size=15, color="#0F172A", family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
         ),
         xaxis=dict(

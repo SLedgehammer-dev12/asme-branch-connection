@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import fitting_database as db
+from version import __version_label__
 
 logger = logging.getLogger(__name__)
 
@@ -86,14 +87,14 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FULL ENCIRCLEMENT SPLIT TEE",
                 "Priority": "Mandatory",
-                "Desc": "Stres > %50 ve d/D > %50 için Hot Tap uygulamasında split tee gereklidir. Ref: 831.4.2(h)",
+                "Desc": "Stres > %50 ve d/D > %50 için Hot Tap uygulamasında complete encirclement gereklidir. Ref: 831.4.2(a)/(e)/(j)",
             }
         ],
         "ClauseTrace": [
             "831.4.1 - Classification of Branch Connections",
-            "831.4.2(c) - High Stress Branch Connections",
-            "831.4.2(d) - Hot Tap Branch Connections",
-            "831.4.2(e) - Split Tee Requirements for High Stress Hot Tap",
+            "831.4.2(a) - High Stress, Large Diameter Branch Connection",
+            "831.4.2(e) - Welding Details / Complete Encirclement",
+            "831.4.2(j) - Hot Tap/Plugging Tee Special Requirements",
         ],
         "Assumptions": [
             "Hot Tap operasyonu sertifikalanmış teknisyen tarafından yapılmalı",
@@ -115,19 +116,18 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FACTORY WELDING TEE (B16.9)",
                 "Priority": "Primary",
-                "Desc": "Stres > %50 ve d/D > %50. Factory tee zorunlu; pad/saddle/weldolet uygun değildir. Ref: 831.4.2(h)(i)",
+                "Desc": "Stres > %50 ve d/D > %50. Smoothly contoured factory tee tercih edilir; localized pad/saddle uygun değildir. Ref: 831.4.2(a)/(e)/(f)",
             },
             {
                 "Type": "FULL ENCIRCLEMENT SLEEVE/TEE",
                 "Priority": "Alternative",
-                "Desc": "Fabrika tee mümkün değilse tam kuşatma uygulanmalı. Ref: 831.4.2(h)",
+                "Desc": "Fabrika tee mümkün değilse complete encirclement uygulanmalı. Ref: 831.4.2(a)/(e)",
             },
         ],
         "ClauseTrace": [
             "831.4.1 - Classification of Branch Connections",
-            "831.4.2(c) - High Stress Branch Connections",
-            "831.4.2(h) - Large Diameter Branch Connections",
-            "831.4.2(h)(i) - Factory Welding Tee Requirements",
+            "831.4.2(a) - High Stress, Large Diameter Branch Connections",
+            "831.4.2(f) - Encirclement Member End Tapering",
         ],
         "Assumptions": [
             "B16.9 Welding Tee ASME B16.9 standartına uyumlu olmalı",
@@ -203,14 +203,14 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "FULL ENCIRCLEMENT SPLIT TEE",
                 "Priority": "Recommended",
-                "Desc": "Stres 20-50% ve d/D > %50 için Hot Tap'te split tee önerilir. Ref: 831.4.2(h)",
+                "Desc": "Stres 20-50% ve d/D > %50 için Hot Tap'te complete encirclement önerilir. Ref: 831.4.2(h)/(i)/(j)",
             }
         ],
         "ClauseTrace": [
             "831.4.1 - Classification of Branch Connections",
-            "831.4.2(b) - Moderate Stress Branch Connections",
-            "831.4.2(d) - Hot Tap Branch Connections",
-            "831.4.2(h) - Large Diameter Hot Tap Requirements",
+            "831.4.2(h) - Large Diameter, Moderate Stress Branch Connection",
+            "831.4.2(i) - Any Type Meeting 831.4.1",
+            "831.4.2(j) - Hot Tap/Plugging Tee Special Requirements",
         ],
         "Assumptions": [
             "Orta stres'te Hot Tap güvenli şekilde yapılabilir",
@@ -231,7 +231,7 @@ DECISION_MATRIX_RULES = [
             {
                 "Type": "WELDING TEE / PAD / SADDLE / WELDOLET",
                 "Priority": "Primary",
-                "Desc": "Stres 20-50% ve d/D > %50. Kaynaklı tipler veya tee/sleeve seçenekleri değerlendirilmeli. Ref: 831.4.2(e)(i)",
+                "Desc": "Stres 20-50% ve d/D > %50. Complete encirclement veya tee seçenekleri değerlendirilmeli. Ref: 831.4.2(h)/(i)",
             }
         ],
         "ClauseTrace": [
@@ -621,31 +621,50 @@ def calc_effective_wall_thickness(
     return max(0.0, wt_net), tol_factor
 
 
-# 5. ASME B31.8 Fig. I-4 Minimum Kaynak Boyutu Hesabı
-def evaluate_minimum_weld_sizes(wt_b_net: float, T_pad: float = 0.0) -> Dict[str, Any]:
+# 5. ASME B31.8 Minimum Kaynak Boyutu Hesabı (Mandatory Appendix I)
+def evaluate_minimum_weld_sizes(
+    wt_b_net: float,
+    T_pad: float = 0.0,
+    branch_nominal_wt_mm: Optional[float] = None,
+    has_pad: bool = False,
+    sleeve_pressure_containing: bool = False,
+    gap_mm: float = 0.0,
+) -> Dict[str, Any]:
     """
-    ASME B31.8 Fig. I-4 / Para 831.4.2 gereği minimum kaynak boğazı ve bacak boylarını hesaplar.
-    
-    Args:
-        wt_b_net: Branşman net et kalınlığı (mm)
-        T_pad: Takviye pedi et kalınlığı (mm, pad yoksa 0.0)
-        
-    Returns:
-        Dict: minimum kaynak boyutları ve ASME kural detayları
+    ASME B31.8-2025 Mandatory Appendix I kaynak detaylarına göre minimum kaynak
+    bacak/boğaz boyutlarını hesaplar.
+
+    - Fig. I-1.1-1 (takviyesiz açıklık): W1 = 3B/8, en az 1/4 in. (6.35 mm);
+      B = branşman nominal et kalınlığı.
+    - Fig. I-1.1-2 (lokal takviye): tüm kaynaklar eşit bacak; min. boğaz = 0.707 × bacak.
+    - Fig. I-1.1-4 (basınçlı hot tap tee manşonu): uç fillet kaynak bacağı
+      1.0t + gap ... 1.4t + gap (t = boru cidarı).
+
+    Normatif değerler lisanslı ASME B31.8-2025 kopyası ile doğrulanmalıdır.
     """
-    # Minimum throat thickness: t_c = min(0.7 * t_b, 6.4 mm [0.25 in])
-    t_c = min(0.7 * wt_b_net, 6.4)
-    # Leg size w = t_c / cos(45 deg) = t_c / 0.7071
-    w_inner_min = round(t_c / 0.7071, 2)
-    
-    # Outer pad weld leg: w_outer >= 0.5 * T_pad
-    w_outer_min = round(0.5 * T_pad, 2) if T_pad > 0 else 0.0
+    B = float(branch_nominal_wt_mm) if branch_nominal_wt_mm else float(wt_b_net)
+    B = max(0.0, B)
+    W1_min = max(0.375 * B, 6.35)          # Fig. I-1.1-1 note (b)
+    throat_min = 0.707 * W1_min            # 45 derece fillet: boğaz = 0.707 × bacak
+    w_outer_min = W1_min if (has_pad or T_pad > 0) else 0.0
+
+    t = max(0.0, float(wt_b_net))
+    gap = max(0.0, gap_mm or 0.0)
+    hot_tap_leg_min = (1.0 * t + gap) if sleeve_pressure_containing else 0.0
+    hot_tap_leg_max = (1.4 * t + gap) if sleeve_pressure_containing else 0.0
 
     return {
-        "t_c_min": round(t_c, 2),
-        "w_inner_min": w_inner_min,
-        "w_outer_min": w_outer_min,
-        "rule_ref": "ASME B31.8 Fig. I-4 (t_c = min(0.7*t_b, 6.4 mm), w_outer >= 0.5*T_pad)",
+        "W1_min": round(W1_min, 2),
+        "t_c_min": round(throat_min, 2),
+        "w_inner_min": round(W1_min, 2),
+        "w_outer_min": round(w_outer_min, 2),
+        "hot_tap_leg_min": round(hot_tap_leg_min, 2),
+        "hot_tap_leg_max": round(hot_tap_leg_max, 2),
+        "rule_ref": (
+            "ASME B31.8-2025 Mandatory Appendix I, Fig. I-1.1-1 (W1 = 3B/8, min 6.35 mm), "
+            "Fig. I-1.1-2 (eşit bacak, min boğaz 0.707×bacak), "
+            "Fig. I-1.1-4 (basınçlı hot tap tee: 1.0t+gap ... 1.4t+gap)"
+        ),
     }
 
 
@@ -1185,14 +1204,14 @@ class DecisionMatrixEvaluator:
             if "FULL ENCIRCLEMENT" in rec_type or "SPLIT TEE" in rec_type:
                 traces.append(
                     self._make_trace_item(
-                        "Para 831.4.2(h)",
+                        "Para 831.4.2(a)/(e)/(j)",
                         "Full-encirclement hardware is used for the large-branch route in this recommendation.",
                     )
                 )
             elif "WELDING TEE" in rec_type and stress_ratio > 0.50 and d_ratio > 0.50:
                 traces.append(
                     self._make_trace_item(
-                        "Para 831.4.2(h)(i)",
+                        "Para 831.4.2(a)/(e)/(f)",
                         "Large-branch, high-stress new construction is routed toward tee-style or full-encirclement solutions.",
                     )
                 )
@@ -1302,30 +1321,47 @@ class DecisionMatrixEvaluator:
         t_order_b = (t_req_b + self.CA_mm) / tol_factor
 
         errors = []
+        # (A) Fiziksel gecersizlikler -> hesap DURDURULUR
         if wt_h_net <= 0:
             errors.append(f"Ana hat et kalinligi ({self.thickness_basis} bazda) korozyon payi icin yetersiz!")
         if wt_b_net <= 0:
             errors.append(f"Bransman et kalinligi ({self.thickness_basis} bazda) korozyon payi icin yetersiz!")
 
-        if not errors:
-            if wt_h_net < t_req_h:
-                errors.append(
-                    f"Ana hat basinc dayanimi yetersiz! (Gerekli net t: {t_req_h:.2f} mm, Mevcut net t: {wt_h_net:.2f} mm, E_h: {E_h:.2f})"
-                )
-            if wt_b_net < t_req_b:
-                errors.append(
-                    f"Bransman basinc dayanimi yetersiz! (Gerekli net t: {t_req_b:.2f} mm, Mevcut net t: {wt_b_net:.2f} mm, E_b: {E_b:.2f})"
-                )
+        # (B) Basinc dayanimi yetersizligi -> UYARI; hesap bilgilendirme amaciyla SURDURULUR
+        pressure_adequate_h = wt_h_net >= t_req_h
+        pressure_adequate_b = wt_b_net >= t_req_b
+        pressure_adequate = pressure_adequate_h and pressure_adequate_b
+        if not pressure_adequate_h:
+            self._add_message(
+                "warning",
+                f"Ana hat basinc dayanimi yetersiz! (Gerekli net t: {t_req_h:.2f} mm, Mevcut net t: {wt_h_net:.2f} mm, E_h: {E_h:.2f}). "
+                "Hesaplama bilgilendirme amaciyla surduruldu; bu tasarim ASME B31.8 basinc dayanimi acisindan UYGUN DEGILDIR.",
+            )
+        if not pressure_adequate_b:
+            self._add_message(
+                "warning",
+                f"Bransman basinc dayanimi yetersiz! (Gerekli net t: {t_req_b:.2f} mm, Mevcut net t: {wt_b_net:.2f} mm, E_b: {E_b:.2f}). "
+                "Hesaplama bilgilendirme amaciyla surduruldu; bu tasarim ASME B31.8 basinc dayanimi acisindan UYGUN DEGILDIR.",
+            )
 
         if errors:
             return {"status": "FAIL", "errors": errors, "messages": list(self.messages), "ClauseTrace": [], "Assumptions": []}
 
         hoop_stress_h = self.pressure_calc.calc_hoop_stress(run["OD_mm"], wt_h_net)
         stress_ratio = hoop_stress_h / run["SMYS_MPa"]
+        overstress = stress_ratio > 1.0
+        if overstress:
+            self._add_message(
+                "error",
+                f"KRITIK ASIRI GERILME: Hoop gerilme orani = {stress_ratio:.3f} (>1.0). Ana hat cidari basinc altinda "
+                "akma sinirini (SMYS) asiyor; karar matrisi en muhafazakar bolgeden secildi.",
+            )
+        # stress_ratio > 1.0 oldugunda DM kural eslesmesi icin 1.0'a klamp edilir (Stress_Ratio ciktisi gercek kalir)
+        match_stress_ratio = min(stress_ratio, 1.0)
         d_ratio = branch["OD_mm"] / run["OD_mm"]
 
         mat_map = FittingMaterials.get_compatible_material(run.get("Standard", ""), run.get("Grade", ""), self.design_temp)
-        recs = self.select_smart_fitting(run, branch, d_ratio, self.op_type, mat_map, stress_ratio, 0)
+        recs = self.select_smart_fitting(run, branch, d_ratio, self.op_type, mat_map, match_stress_ratio, 0)
         clause_trace = self._merge_trace_lists(*[rec.get("ClauseTrace", []) for rec in recs])
         assumptions = self._merge_note_lists(*[rec.get("Assumptions", []) for rec in recs])
 
@@ -1345,7 +1381,10 @@ class DecisionMatrixEvaluator:
         }
 
         return {
-            "status": "OK",
+            "status": "OK" if pressure_adequate else "WARNING",
+            "Pressure_Adequate": pressure_adequate,
+            "pressure_adequate_h": pressure_adequate_h,
+            "pressure_adequate_b": pressure_adequate_b,
             "P_MPa": self.pressure_calc.P_MPa,
             "E_h": E_h,
             "E_b": E_b,
@@ -1372,6 +1411,291 @@ class DecisionMatrixEvaluator:
 
 
 # =============================================================================
+# ORTAK ALAN TERİMLERİ VE BOYUT ÖNERİSİ (analyze + propose_fitting_dimensions)
+# =============================================================================
+def _compute_d_hole(branch: Dict[str, Any], d_hole_type: str = "ID") -> Tuple[float, str]:
+    """
+    Delik çapı d_hole — ASME B31.8-2025 Para 831.4.1(c).
+
+    ID  (set-on):  d = branşman iç çapı  (B31.8 varsayılanı)
+    OD  (set-in):  d = branşman dış çapı  (muhafazakâr)
+    """
+    basis = "OD" if str(d_hole_type or "ID").upper() == "OD" else "ID"
+    if basis == "ID":
+        od = float(branch.get("OD_mm", 0.0) or 0.0)
+        wt = float(branch.get("WT_mm", 0.0) or 0.0)
+        return max(0.0, od - 2.0 * wt), "ID"
+    return float(branch.get("OD_mm", 0.0) or 0.0), "OD"
+
+
+def _base_area_terms(
+    run: Dict[str, Any],
+    branch: Dict[str, Any],
+    dm_res: Dict[str, Any],
+    d_hole: float,
+    branch_angle_deg: float = 90.0,
+    op_type: str = "New Construction",
+    weld_legs: Optional[Dict[str, Any]] = None,
+    has_pad: bool = False,
+    T_s: float = 0.0,
+    fitting_smys: float = 240.0,
+) -> Dict[str, Any]:
+    """
+    Alan telafisi temel terimlerini hesaplar (A_req, d_opening, L1/L2, f_*, A1, A2, A3).
+
+    PipelineExpertEngine.analyze() ve propose_fitting_dimensions() tarafından ORTAK
+    kullanılır; böylece form önerileri ile nihai hesap birebir aynı sayıları üretir
+    (parite garantisi). Formüller analyze() davranışının birebir aynısıdır.
+    """
+    t_req_h = float(dm_res["t_h_mm"])
+    t_req_b = float(dm_res["t_b_mm"])
+    wt_h_net = float(dm_res["wt_h_net"])
+    wt_b_net = float(dm_res["wt_b_net"])
+    weld_legs = weld_legs or {}
+
+    # Açı hesabı (ASME B31.8 Para 831.4.1(b))
+    beta_deg = max(30.0, min(90.0, float(branch_angle_deg or 90.0)))
+    sin_beta = math.sin(math.radians(beta_deg))
+    if beta_deg < 90.0:
+        d_opening = d_hole / sin_beta
+        A_req = (d_hole * t_req_h) / sin_beta
+    else:
+        d_opening = d_hole
+        A_req = d_hole * t_req_h
+
+    # Takviye bölgesi limitleri — NOT: zon yaklaşımı repo mühendislik yorumudur;
+    # kesin sınırlar lisanslı ASME B31.8 kopyası ile doğrulanmalıdır.
+    # L_eff = min(L1, L2): fazla metalin sayılabileceği en küçük bölge yüksekliği
+    # (muhafazakâr). A2 yalnızca bu limit içindeki branşman fazlalığını sayar.
+    L_1 = 2.5 * wt_h_net
+    L_2 = (2.5 * wt_b_net) + float(T_s or 0.0)
+    L_eff = min(L_1, L_2)
+
+    # Mukavemet faktörleri
+    S_h = float(run.get("SMYS_MPa", 0.0) or 0.0)
+    S_b = float(branch.get("SMYS_MPa", 0.0) or 0.0)
+    S_s = float(fitting_smys or 0.0)
+    f_branch = min(1.0, S_b / S_h) if S_h > 0 else 1.0
+    f_sleeve = min(1.0, S_s / S_h) if S_h > 0 else 1.0
+
+    # A1 (ana hat fazlalık alanı)
+    if op_type == "Hot Tap":
+        A1 = 0.0
+        a1_reason = "hot_tap"
+    elif wt_h_net <= t_req_h:
+        A1 = 0.0
+        a1_reason = "insufficient"
+    else:
+        A1 = (wt_h_net - t_req_h) * d_opening
+        a1_reason = "full"
+
+    # A2 (branşman fazlalık alanı) — takviye bölgesi yüksekliği (L_eff = min(L1,L2)) ile
+    # Not: wt_b_net ≤ t_req_b ise fazlalık yoktur; negatif alan fiziksel değildir → 0.
+    A2 = 2.0 * max(0.0, wt_b_net - t_req_b) * L_eff * f_branch
+
+    # A3 (kaynak alanı): fillet bacak = 0.5 × w² (ASME B31.8-2025 Appendix F / I-1.1)
+    w_inner = float(weld_legs.get("inner", 0.0) or 0.0)
+    w_outer = float(weld_legs.get("outer", 0.0) or 0.0)
+    A3 = 2.0 * (0.5 * w_inner ** 2)
+    if has_pad:
+        A3 += 2.0 * (0.5 * w_outer ** 2)
+
+    return {
+        "t_req_h": t_req_h,
+        "t_req_b": t_req_b,
+        "wt_h_net": wt_h_net,
+        "wt_b_net": wt_b_net,
+        "beta_deg": beta_deg,
+        "sin_beta": sin_beta,
+        "d_opening": d_opening,
+        "A_req": A_req,
+        "L_1": L_1,
+        "L_2": L_2,
+        "L_eff": L_eff,
+        "f_branch": f_branch,
+        "f_sleeve": f_sleeve,
+        "A1": A1,
+        "a1_reason": a1_reason,
+        "A2": A2,
+        "A3": A3,
+        "w_inner": w_inner,
+        "w_outer": w_outer,
+    }
+
+
+def propose_fitting_dimensions(
+    run: Dict[str, Any],
+    branch: Dict[str, Any],
+    dm_res: Dict[str, Any],
+    d_hole_type: str = "ID",
+    selected_fitting: Optional[str] = None,
+    weld_legs: Optional[Dict[str, Any]] = None,
+    pad_props: Optional[Dict[str, Any]] = None,
+    op_type: str = "New Construction",
+    P_mpa: float = 0.0,
+    F: float = 0.72,
+    E: float = 1.0,
+    T: float = 1.0,
+    fitting_smys: float = 240.0,
+    sleeve_pressure_containing: bool = True,
+    branch_angle_deg: float = 90.0,
+) -> Dict[str, Any]:
+    """
+    Aşama 2 formunu doldurmak için seçilen fitting'e özel önerilen boyutları üretir.
+
+    Hesap mantığı engine.py içinde kalır; UI yalnızca bu sözlüğü number_input
+    varsayılanı ve "Otomatik hesaplanan" caption'ı olarak gösterir.
+
+    Returns:
+        {
+          d_hole_mm, d_hole_basis, A_req_mm2, d_opening_mm, f_branch, f_sleeve,
+          is_exempt, is_sleeve_type, weld: {...}, pad: {...}?, sleeve: {...}?, clause
+        }
+    """
+    weld_legs = weld_legs or {"inner": 0.0, "outer": 0.0}
+    pad_props = pad_props or {"has_pad": False}
+    has_pad = bool(pad_props.get("has_pad", False))
+    T_s = float(pad_props.get("T_pad", 0.0) or 0.0) if has_pad else 0.0
+
+    d_hole, d_hole_basis = _compute_d_hole(branch, d_hole_type)
+    terms = _base_area_terms(
+        run=run, branch=branch, dm_res=dm_res, d_hole=d_hole,
+        branch_angle_deg=branch_angle_deg, op_type=op_type,
+        weld_legs=weld_legs, has_pad=has_pad, T_s=T_s,
+        fitting_smys=fitting_smys,
+    )
+
+    ftype_upper = (selected_fitting or "").upper()
+    is_sleeve_type = (
+        ("SPLIT TEE" in ftype_upper)
+        or ("FULL ENCIRCLEMENT" in ftype_upper)
+        or ("SLEEVE" in ftype_upper and "SADDLE" not in ftype_upper)
+    )
+    is_pad_like = ("PAD" in ftype_upper) or ("SADDLE" in ftype_upper)
+    # analyze() ile aynı muafiyet kuralı (831.4.2(a)/(b)/(k))
+    is_exempt = (not is_sleeve_type) and bool(selected_fitting) and any(
+        k in ftype_upper for k in ["TEE", "OLET", "SOCKOLET"]
+    )
+
+    out: Dict[str, Any] = {
+        "d_hole_mm": round(d_hole, 3),
+        "d_hole_basis": d_hole_basis,
+        "A_req_mm2": round(terms["A_req"], 2),
+        "d_opening_mm": round(terms["d_opening"], 3),
+        "f_branch": round(terms["f_branch"], 3),
+        "f_sleeve": round(terms["f_sleeve"], 3),
+        "is_exempt": is_exempt,
+        "is_sleeve_type": is_sleeve_type,
+        "branch_angle_deg": terms["beta_deg"],
+        "weld": {
+            **evaluate_minimum_weld_sizes(
+                terms["wt_b_net"],
+                T_s,
+                branch_nominal_wt_mm=branch.get("WT_mm", terms["wt_b_net"]),
+                has_pad=has_pad,
+                sleeve_pressure_containing=bool(sleeve_pressure_containing) and is_sleeve_type,
+            ),
+            "w_inner_entered": terms["w_inner"],
+            "w_outer_entered": terms["w_outer"],
+        },
+        "clause": (
+            "ASME B31.8-2025 Para 831.4.1 / 831.4.2, Mandatory Appendix F ve Appendix I"
+        ),
+    }
+
+    # --- Takviye pedi / eyer (REINFORCING PAD, SADDLE) ---
+    if is_pad_like and not is_exempt:
+        proposal = auto_size_reinforcement_pad(
+            A_req=terms["A_req"],
+            A1=terms["A1"],
+            A2=terms["A2"],
+            A3=terms["A3"],
+            d_hole=d_hole,
+            branch_od=branch.get("OD_mm", 0.0),
+            run_od=run.get("OD_mm", 0.0),
+            f_sleeve=terms["f_sleeve"],
+            target_pad_thickness=None,
+        )
+        if has_pad and T_s > 0:
+            # analyze() auto_pad ile parite: aynı hedef et kalınlığı ile tekrar hesapla
+            proposal["for_given_T"] = auto_size_reinforcement_pad(
+                A_req=terms["A_req"],
+                A1=terms["A1"],
+                A2=terms["A2"],
+                A3=terms["A3"],
+                d_hole=d_hole,
+                branch_od=branch.get("OD_mm", 0.0),
+                run_od=run.get("OD_mm", 0.0),
+                f_sleeve=terms["f_sleeve"],
+                target_pad_thickness=T_s,
+            )
+        out["pad"] = proposal
+
+    # --- Manşon (SPLIT TEE / FULL ENCIRCLEMENT SLEEVE) — Appendix F ---
+    if is_sleeve_type:
+        zone_length = 2.0 * d_hole  # Appendix F: merkezden her iki yanda d (toplam 2d)
+        base = evaluate_complete_encirclement_reinforcement(
+            d_mm=d_hole,
+            t_h_mm=terms["t_req_h"],
+            wt_h_net_mm=terms["wt_h_net"],
+            wt_b_net_mm=terms["wt_b_net"],
+            t_b_mm=terms["t_req_b"],
+            header_nominal_wt_mm=run.get("WT_mm", terms["wt_h_net"]),
+            branch_nominal_wt_mm=branch.get("WT_mm", terms["wt_b_net"]),
+            sleeve_wt_mm=0.0,
+            sleeve_length_mm=zone_length,
+            f_branch=terms["f_branch"],
+            f_sleeve=terms["f_sleeve"],
+            weld_area_mm2=terms["A3"],
+        )
+        eff_len = max(0.0, min(zone_length, zone_length) - d_hole)  # = d_hole
+        T_from_area = (
+            base["Missing"] / (eff_len * terms["f_sleeve"])
+            if eff_len > 0 and terms["f_sleeve"] > 0
+            else 0.0
+        )
+
+        # Para 831.4.2(j): analyze() yalnız Hot Tap + basınçlı manşonda çalıştırır
+        t_hoop_min = None
+        pe = None
+        if op_type == "Hot Tap" and sleeve_pressure_containing:
+            T_guess = max(T_from_area, T_s, 0.0)
+            for _ in range(3):
+                sleeve_od = float(run.get("OD_mm", 0.0) or 0.0) + 2.0 * T_guess
+                pe = evaluate_pressurized_hot_tap_sleeve(
+                    P_mpa=P_mpa,
+                    sleeve_od_mm=sleeve_od,
+                    pipe_wall_mm=float(run.get("WT_mm", terms["wt_h_net"]) or 0.0),
+                    sleeve_smys_mpa=fitting_smys,
+                    F=F,
+                    E=E,
+                    T=T,
+                    gap_mm=0.0,
+                )
+                t_hoop_min = pe["t_hoop_mm"]
+                if t_hoop_min > T_guess:
+                    T_guess = t_hoop_min
+                else:
+                    break
+
+        out["sleeve"] = {
+            "L_sleeve_min_mm": round(zone_length, 1),
+            "T_from_area_mm": round(T_from_area, 2),
+            "t_hoop_min_mm": t_hoop_min,
+            "T_recommended_mm": round(max(T_from_area, t_hoop_min or 0.0), 2),
+            "base_missing_mm2": round(base["Missing"], 2),
+            "A_R_mm2": round(base["A_R"], 2),
+            "pressurized_check": pe,
+            "clause": (
+                "ASME B31.8-2025 Mandatory Appendix F (Fig. F-2.1.5-1)"
+                + (", Para 831.4.2(j) / Fig. I-1.1-4" if pe is not None else "")
+            ),
+        }
+
+    return out
+
+
+# =============================================================================
 # ANA HESAPLAMA MOTORU (Facade)
 # =============================================================================
 class PipelineExpertEngine:
@@ -1394,7 +1718,7 @@ class PipelineExpertEngine:
         pad_props: Any,
         design_temp: float,
         fitting_smys: float,
-        d_hole_type: str = "OD",
+        d_hole_type: str = "ID",
         mill_tol_percent: float = 12.5,
         thickness_basis: str = "nominal",
         branch_angle_deg: float = 90.0,
@@ -1404,7 +1728,7 @@ class PipelineExpertEngine:
         hot_tap_flow_ms: Optional[float] = None,
         hot_tap_d_pen_mm: float = 2.0,
         hot_tap_fluid: str = "gas",
-        split_tee_type: str = "Type B",
+        sleeve_pressure_containing: bool = True,
     ):
         """
         Args:
@@ -1419,7 +1743,7 @@ class PipelineExpertEngine:
             pad_props: {'has_pad': bool, 'T_pad': float, 'D_pad': float}
             design_temp: Tasarım sıcaklığı (°C)
             fitting_smys: Fitting/Pad SMYS değeri (MPa)
-            d_hole_type: "OD" (Dış çap) veya "ID" (İç çap)
+            d_hole_type: "ID" (İç çap, B31.8 varsayılanı) veya "OD" (Dış çap, set-in muhafazakâr)
             mill_tol_percent: Hadde toleransı (%12.5 default)
             thickness_basis: "nominal" veya "minimum"
             branch_angle_deg: Branşman açısı (derece, default 90)
@@ -1442,7 +1766,7 @@ class PipelineExpertEngine:
         self.hot_tap_flow_ms = hot_tap_flow_ms
         self.hot_tap_d_pen_mm = hot_tap_d_pen_mm
         self.hot_tap_fluid = hot_tap_fluid
-        self.split_tee_type = split_tee_type
+        self.sleeve_pressure_containing = bool(sleeve_pressure_containing)
 
         if isinstance(weld_legs, dict):
             self.weld_legs = dict(weld_legs)
@@ -1536,6 +1860,12 @@ class PipelineExpertEngine:
         dm_res = self.evaluate_decision_matrix(run, branch)
         if dm_res["status"] == "FAIL":
             return dm_res
+        if dm_res.get("status") == "WARNING":
+            self._add_message(
+                "warning",
+                "Ana hat ve/veya bransman basinc dayanimi yetersiz oldugu icin bu alan telafisi analizi bilgilendirme "
+                "amacli surdurulmustur; sonuclar ASME B31.8 basinc dayanimi uygunluk onayi DEGILDIR.",
+            )
 
         t_req_h = dm_res["t_h_mm"]
         t_req_b = dm_res["t_b_mm"]
@@ -1545,26 +1875,32 @@ class PipelineExpertEngine:
         d_ratio = dm_res["d_ratio"]
 
         # Delik çapı: Kullanıcı tercihine göre dış çap (OD) veya iç çap (ID)
-        if self.d_hole_type == "ID":
-            d_hole = max(0, branch["OD_mm"] - 2.0 * branch["WT_mm"])
+        d_hole, d_hole_basis = _compute_d_hole(branch, self.d_hole_type)
+        if d_hole_basis == "ID":
             self._add_message(
                 "info", f"d_hole (Delik Çapı) iç çap (ID = {d_hole:.2f} mm) olarak (Set-On) hesaplandı."
             )
         else:
-            d_hole = branch["OD_mm"]
             self._add_message(
                 "info",
                 f"A_req hesabında d_hole (Delik Çapı) dış çap (OD = {d_hole:.2f} mm) olarak (Set-In / Muhafazakar) hesaplandı.",
             )
 
-        # Açı hesabı (ASME B31.8 Para 831.4.1(b))
-        beta_deg = max(30.0, min(90.0, self.branch_angle_deg))
-        beta_rad = math.radians(beta_deg)
-        sin_beta = math.sin(beta_rad)
+        # Açı, bölge limitleri, mukavemet ve A1/A2/A3 — propose_fitting_dimensions
+        # ile ortak _base_area_terms (parite garantisi; ASME B31.8 Para 831.4.1).
+        T_s = self.pad_props.get("T_pad", 0) if self.pad_props.get("has_pad") else 0
+        terms = _base_area_terms(
+            run=run, branch=branch, dm_res=dm_res, d_hole=d_hole,
+            branch_angle_deg=self.branch_angle_deg, op_type=self.op_type,
+            weld_legs=self.weld_legs,
+            has_pad=bool(self.pad_props.get("has_pad", False)),
+            T_s=T_s, fitting_smys=self.fitting_smys,
+        )
+        beta_deg = terms["beta_deg"]
         beta_fea_warning = self.branch_angle_deg < 45.0
+        d_opening = terms["d_opening"]
+        A_req = terms["A_req"]
         if self.branch_angle_deg < 90.0:
-            d_opening = d_hole / sin_beta
-            A_req = (d_hole * t_req_h) / sin_beta
             self._add_message(
                 "info",
                 f"Açılı bağlantı ({self.branch_angle_deg}°): Gerekli alan A_req = (d × t_h)/sin({self.branch_angle_deg}°) = {A_req:.1f} mm² (ASME B31.8 Para 831.4.1(b))."
@@ -1577,71 +1913,60 @@ class PipelineExpertEngine:
                     "basit alan telafisi yöntemi sınırlandırılır. Bu durum için Sonlu Elemanlar Analizi (FEA) veya özel "
                     "takviyeli tasarım ile mühendis doğrulaması önerilir."
                 )
-        else:
-            d_opening = d_hole
-            A_req = d_hole * t_req_h
 
-        # Takviye Bölgesi Limitleri (L)
-        # ASME B31.8 alan telafisi yönteminde A1 ve A2 kendi zonlarında değerlendirilir:
-        #  - A1 (ana hat fazlalığı) açıklık genişliği (d_opening) üzerinden
-        #  - A2 (branşman fazlalığı) branşman zonu yüksekliği üzerinden (2.5*t_b + T_s)
-        # NOT: Bu zon yaklaşımı repo mühendislik yorumudur; kesin sınırlar lisanslı
-        # ASME B31.8 kopyası ile doğrulanmalıdır.
-        T_s = self.pad_props.get("T_pad", 0) if self.pad_props.get("has_pad") else 0
-        L_1 = 2.5 * wt_h_net
-        L_2 = (2.5 * wt_b_net) + T_s
-        L_reinforcement = L_2
+        # Takviye Bölgesi Limitleri (L) — NOT: zon yaklaşımı repo mühendislik yorumudur;
+        # kesin sınırlar lisanslı ASME B31.8 kopyası ile doğrulanmalıdır.
+        L_1 = terms["L_1"]
+        L_2 = terms["L_2"]
+        L_reinforcement = terms["L_eff"]
 
-        # Mukavemet Faktörleri
-        S_h = run["SMYS_MPa"]
-        S_b = branch["SMYS_MPa"]
-        S_s = self.fitting_smys
-
-        f_branch = min(1.0, S_b / S_h) if S_h > 0 else 1.0
-        f_sleeve = min(1.0, S_s / S_h) if S_h > 0 else 1.0
+        f_branch = terms["f_branch"]
+        f_sleeve = terms["f_sleeve"]
 
         # A1 (Ana Boru Artı Alanı)
-        if self.op_type == "Hot Tap":
-            A1 = 0.0
+        A1 = terms["A1"]
+        if terms["a1_reason"] == "hot_tap":
             self._add_message(
                 "warning",
                 "A1 (Ana Hat Fazlalık Alanı): Hot Tap operasyonunda saha koşulları belirsizliği yüzünden güvenli tarafta kalmak için 0.0 kabul edildi.",
             )
-        else:
-            if wt_h_net <= t_req_h:
-                A1 = 0.0
-                self._add_message(
-                    "info",
-                    f"A1 (Ana Hat Fazlalık Alanı): Ana hat net kalınlığı ({wt_h_net:.2f} mm), gerekli kalınlıktan ({t_req_h:.2f} mm) fazla olmadığı için A1 = 0.0 mm² olarak hesaplandı.",
-                )
-            else:
-                A1 = (wt_h_net - t_req_h) * d_opening
+        elif terms["a1_reason"] == "insufficient":
+            self._add_message(
+                "info",
+                f"A1 (Ana Hat Fazlalık Alanı): Ana hat net kalınlığı ({wt_h_net:.2f} mm), gerekli kalınlıktan ({t_req_h:.2f} mm) fazla olmadığı için A1 = 0.0 mm² olarak hesaplandı.",
+            )
 
         # A2 (Branşman Boru Artı Alanı) - branşman zonu yüksekliği (L_2) ile
-        A2 = 2.0 * (wt_b_net - t_req_b) * L_2 * f_branch
+        A2 = terms["A2"]
 
-        # A3 (Kaynak Alanı)
-        A3 = 0.0
+        # A3 (kaynak alanı — _base_area_terms içinde has_pad durumuna göre hesaplandı)
+        A3 = terms["A3"]
         A4 = 0.0
         W_p = 0.0
 
         # İç (Branşman - Pad/Header) ve Dış (Pad - Header) kaynak bacak boyları
-        w_inner = self.weld_legs.get("inner", 0.0)
-        w_outer = self.weld_legs.get("outer", 0.0)
+        w_inner = terms["w_inner"]
+        w_outer = terms["w_outer"]
 
-        # ASME B31.8 Fig. I-4 Minimum kaynak boyutu denetimi
-        min_welds = evaluate_minimum_weld_sizes(wt_b_net, T_s if self.pad_props.get("has_pad") else 0.0)
+        # ASME B31.8-2025 Mandatory Appendix I minimum kaynak boyutu denetimi
+        min_welds = evaluate_minimum_weld_sizes(
+            wt_b_net,
+            T_s if self.pad_props.get("has_pad") else 0.0,
+            branch_nominal_wt_mm=branch.get("WT_mm", wt_b_net),
+            has_pad=self.pad_props.get("has_pad", False),
+            sleeve_pressure_containing=self.sleeve_pressure_containing,
+        )
         if w_inner > 0 and w_inner < min_welds["w_inner_min"]:
             self._add_message(
                 "warning",
                 f"Kaynak Ölçüsü Uyarısı: Girilen branşman kaynak bacak boyu ({w_inner:.1f} mm), "
-                f"ASME B31.8 Fig. I-4 gereği önerilen minimum boyuttan ({min_welds['w_inner_min']:.1f} mm) küçüktür!"
+                f"ASME B31.8-2025 Fig. I-1.1-1 gereği önerilen minimum boyuttan ({min_welds['w_inner_min']:.1f} mm = 3B/8, min 6.35 mm) küçüktür!"
             )
         if self.pad_props.get("has_pad") and w_outer > 0 and w_outer < min_welds["w_outer_min"]:
             self._add_message(
                 "warning",
                 f"Kaynak Ölçüsü Uyarısı: Girilen pad dış kaynak bacak boyu ({w_outer:.1f} mm), "
-                f"ASME B31.8 gereği önerilen minimum boyuttan ({min_welds['w_outer_min']:.1f} mm = 0.5×T_pad) küçüktür!"
+                f"ASME B31.8-2025 Fig. I-1.1-2 gereği önerilen minimum boyuttan ({min_welds['w_outer_min']:.1f} mm) küçüktür!"
             )
 
         if self.pad_props.get("has_pad"):
@@ -1671,9 +1996,7 @@ class PipelineExpertEngine:
             )
 
             A4 = 2.0 * W_p * T_s * f_sleeve
-            A3 = 2.0 * (0.5 * w_inner**2) + 2.0 * (0.5 * w_outer**2)
-        else:
-            A3 = 2.0 * (0.5 * w_inner**2)
+        # A3: _base_area_terms içinde has_pad durumuna göre hesaplandı (parite)
 
         # Hot Tap API RP 2201 Güvenlik Analizi
         hot_tap_guidance = None
@@ -1755,36 +2078,102 @@ class PipelineExpertEngine:
             )
             hot_tap_guidance["flow_assessment"] = flow_assessment
 
-        A_avail = A1 + A2 + A3 + A4
-        Missing_Area = max(0, A_req - A_avail)
-        Need_Reinf = Missing_Area > 0
+        # --- ASME B31.8-2025 tam kuşatma (complete encirclement) alan yöntemi ---
+        # Split tee / full encirclement manşon MUAF DEĞİLDİR; Mandatory Appendix F alan yöntemi uygulanır.
+        ftype_upper = (selected_fitting_type or "").upper()
+        is_sleeve_type = (
+            ("SPLIT TEE" in ftype_upper)
+            or ("FULL ENCIRCLEMENT" in ftype_upper)
+            or ("SLEEVE" in ftype_upper and "SADDLE" not in ftype_upper)
+        )
+        complete_encirclement = None
+        hot_tap_sleeve = None
+        if is_sleeve_type:
+            complete_encirclement = evaluate_complete_encirclement_reinforcement(
+                d_mm=d_hole,
+                t_h_mm=t_req_h,
+                wt_h_net_mm=wt_h_net,
+                wt_b_net_mm=wt_b_net,
+                t_b_mm=t_req_b,
+                header_nominal_wt_mm=run.get("WT_mm", wt_h_net),
+                branch_nominal_wt_mm=branch.get("WT_mm", wt_b_net),
+                sleeve_wt_mm=self.pad_props.get("T_pad", 0.0),
+                sleeve_length_mm=self.pad_props.get("D_pad", 0.0),
+                f_branch=f_branch,
+                f_sleeve=f_sleeve,
+                weld_area_mm2=A3,
+            )
+            A1 = complete_encirclement["A1"]
+            A2 = complete_encirclement["A2"]
+            A4 = complete_encirclement["A4"]
+            A_avail = complete_encirclement["A_avail"]
+            Missing_Area = complete_encirclement["Missing"]
+            Need_Reinf = Missing_Area > 0
+            self._add_message(
+                "info" if complete_encirclement["pass"] else "warning",
+                f"Tam kuşatma takviye alanı (ASME B31.8-2025 Appendix F): A_req = {complete_encirclement['A_R']:.0f} mm², "
+                f"A_avail = {complete_encirclement['A_avail']:.0f} mm² (A1={complete_encirclement['A1']:.0f}, "
+                f"A2={complete_encirclement['A2']:.0f}, A3={complete_encirclement['A3']:.0f}, A4={complete_encirclement['A4']:.0f}).",
+            )
+            if self.op_type == "Hot Tap" and self.sleeve_pressure_containing:
+                hot_tap_sleeve = evaluate_pressurized_hot_tap_sleeve(
+                    P_mpa=self.P_MPa,
+                    sleeve_od_mm=run.get("OD_mm", 0.0) + 2.0 * self.pad_props.get("T_pad", 0.0),
+                    pipe_wall_mm=run.get("WT_mm", wt_h_net),
+                    sleeve_smys_mpa=self.fitting_smys,
+                    F=self.F,
+                    E=self.E,
+                    T=self.T,
+                    gap_mm=0.0,
+                )
+                self._add_message(
+                    "info" if hot_tap_sleeve["pass"] else "warning",
+                    f"Basınçlı hot tap tee manşonu (ASME B31.8-2025 Para 831.4.2(j) / Fig. I-1.1-4): {hot_tap_sleeve['recommendation']}",
+                )
+        else:
+            A_avail = A1 + A2 + A3 + A4
+            Missing_Area = max(0, A_req - A_avail)
+            Need_Reinf = Missing_Area > 0
 
-        # Standart ürün muafiyeti
+        # --- Standart ürün muafiyeti (yalnızca üretici kalifiye ürünler) ---
         is_exempt = False
-        if selected_fitting_type and any(
-            k in selected_fitting_type.upper() for k in ["TEE", "OLET", "SOCKOLET", "SPLIT TEE", "SLEEVE"]
+        if (not is_sleeve_type) and selected_fitting_type and any(
+            k in ftype_upper for k in ["TEE", "OLET", "SOCKOLET"]
         ):
             is_exempt = True
             Need_Reinf = False
-            ftype_up = selected_fitting_type.upper()
-            if "SPLIT TEE" in ftype_up or "SLEEVE" in ftype_up:
-                self._add_message(
-                    "info",
-                    f"Seçilen donanım tipi ({selected_fitting_type}) için ASME B31.8 Para 831.4.2(h) & ASME PCC-2 gereği "
-                    "alan telafisi (Area Replacement) ayrıca hesaplanmaz; manşon basınç tutma kalınlığı (T_sleeve ≥ t_req_h) "
-                    "ayrı bir doğrulama ile kontrol edilir.",
-                )
-            elif "OLET" in ftype_up or "SOCKOLET" in ftype_up:
+            Missing_Area = 0.0
+            if "OLET" in ftype_upper or "SOCKOLET" in ftype_upper:
                 self._add_message(
                     "info",
                     f"Seçilen donanım tipi ({selected_fitting_type}) MSS SP-97 integral takviyeli (integrally reinforced) "
-                    "üründür; üretici basınç sınıfı (3000#/6000#) eşleştiğinde ilave alan telafisi aranmaz (ASME B31.8 Para 831.4.2).",
+                    "üründür; üretici hesaplama/proof testi açıklığı tam takviye eder (ASME B31.8-2025 Para 831.4.2(k)). "
+                    "Koşu borusunun yarısından büyük outlet boyutları ek mühendislik değerlendirmesi gerektirir.",
                 )
             else:
                 self._add_message(
                     "info",
-                    f"Seçilen donanım tipi ({selected_fitting_type}) fabrika ürünü olduğundan ASME B31.8 Para 831.4.2 gereği "
-                    "alan telafisi (Area Replacement) üretici/burst-test garantisi altındadır. İlave Pad vb. hesapları opsiyoneldir.",
+                    f"Seçilen donanım tipi ({selected_fitting_type}) ASME B31.8-2025 Para 831.4.2(a)/(b) kapsamında "
+                    "'smoothly contoured wrought steel tee of proven design' kabul edilir; ilave alan telafisi aranmaz.",
+                )
+
+        # --- ASME B31.8-2025 Para 831.4.2(d): <= NPS 2 (DN 50) takviye hesabı gerekmez ---
+        branch_nps_num = _nps_to_number(branch.get("NPS", ""))
+        if branch_nps_num is not None and branch_nps_num <= 2.0:
+            self._add_message(
+                "info",
+                "ASME B31.8-2025 Para 831.4.2(d): NPS 2 (DN 50) ve daha küçük branş açıklıklarında takviye hesabı "
+                "gerekmez; yine de vibrasyon ve diğer yükler için uygun takviye sağlanmalıdır.",
+            )
+
+        # --- ASME B31.8-2025 Para 831.4.2(k): MSS SP-97 olet koşu/2 sınırı (uyarı) ---
+        if ("OLET" in ftype_upper or "SOCKOLET" in ftype_upper) and run.get("OD_mm", 0) > 0:
+            if branch.get("OD_mm", 0) > 0.5 * run["OD_mm"]:
+                self._add_message(
+                    "warning",
+                    f"MSS SP-97 outlet boyutu ({branch.get('OD_mm', 0):.1f} mm), koşu borusunun yarısını "
+                    f"({0.5 * run['OD_mm']:.1f} mm) aşıyor. ASME B31.8-2025 Para 831.4.2(k): ek mühendislik "
+                    "değerlendirmesi (additional engineering assessment) gereklidir.",
                 )
 
         # Takviyesiz fabricated branch geometrik limit kontrolü
@@ -1816,23 +2205,22 @@ class PipelineExpertEngine:
             target_pad_thickness=self.pad_props.get("T_pad") if self.pad_props.get("has_pad") else None,
         )
 
-        # Split Tee / Full Encirclement Sleeve mekanik doğrulaması (Type A/B)
+        # Split Tee / Full Encirclement Sleeve (ASME B31.8-2025) özet nesnesi
         split_tee = None
-        if selected_fitting_type and any(
-            k in selected_fitting_type.upper() for k in ["SPLIT TEE", "SLEEVE"]
-        ):
-            split_tee = evaluate_split_tee_design(
-                split_type=self.split_tee_type,
-                sleeve_wt_mm=self.pad_props.get("T_pad", 0.0),
-                t_req_h_mm=t_req_h,
-                branch_od_mm=branch["OD_mm"],
-                run_od_mm=run["OD_mm"],
-                d_opening_mm=d_opening,
-            )
-            self._add_message(
-                "warning" if not split_tee["thickness_pass"] else "info",
-                f"Split Tee / Sleeve ({split_tee['split_type']}): {split_tee['recommendation']}",
-            )
+        if is_sleeve_type and complete_encirclement is not None:
+            split_tee = dict(complete_encirclement)
+            split_tee["sleeve_pressure_containing"] = self.sleeve_pressure_containing
+            split_tee["T_sleeve_mm"] = round(float(self.pad_props.get("T_pad", 0.0)), 3)
+            split_tee["sleeve_length_mm"] = round(float(self.pad_props.get("D_pad", 0.0)), 1)
+            if hot_tap_sleeve is not None:
+                split_tee["pressurized"] = hot_tap_sleeve
+                split_tee["status"] = hot_tap_sleeve["status"]
+                split_tee["thickness_pass"] = bool(
+                    hot_tap_sleeve["pass"] and complete_encirclement["pass"]
+                )
+            else:
+                split_tee["status"] = "UYGUN" if complete_encirclement["pass"] else "YETERSİZ"
+                split_tee["thickness_pass"] = bool(complete_encirclement["pass"])
 
         # Hidrostatik Saha Testi Analizi (konum sınıfına göre test faktörü)
         hydrotest = evaluate_hydrotest_pressure(
@@ -1872,8 +2260,84 @@ class PipelineExpertEngine:
             f"izin verilen = {allowable:.1f} MPa -> {'UYGUN' if combined_stress['pass'] else 'AŞIM'}.",
         )
 
+        # --- A1/A2/A3/A4 sayısal hesap detayları (UI + HTML/PDF rapor ortak kaynak) ---
+        has_pad_flag = bool(self.pad_props.get("has_pad", False))
+        pad_T = float(self.pad_props.get("T_pad", 0.0) or 0.0)
+        area_zone = [
+            {"code": "L1", "label": "Ana hat takviye zonu (L₁)",
+             "value": round(L_1, 2),
+             "formula": f"L₁ = 2.5 × wt_h_net = 2.5 × {wt_h_net:.2f} = {L_1:.2f} mm"},
+            {"code": "L2", "label": "Branşman takviye zonu (L₂)",
+             "value": round(L_2, 2),
+             "formula": f"L₂ = 2.5 × wt_b_net + T_s = 2.5 × {wt_b_net:.2f} + {pad_T:.2f} = {L_2:.2f} mm"},
+            {"code": "Leff", "label": "Etkin takviye zonu (L_eff = min(L₁, L₂))",
+             "value": round(L_reinforcement, 2),
+             "formula": f"L_eff = min(L₁, L₂) = min({L_1:.2f}, {L_2:.2f}) = {L_reinforcement:.2f} mm"},
+        ]
+        if is_sleeve_type and complete_encirclement is not None:
+            ce = complete_encirclement
+            area_zone.append({
+                "code": "Lzone", "label": "Tam kuşatma zonu (L_zone, Appendix F)",
+                "value": ce.get("L_zone_mm"),
+                "formula": (
+                    f"L_zone = min(2.5 × T_h, 2.5 × T_b + t_sleeve) = "
+                    f"min(2.5 × {run.get('WT_mm', 0):.2f}, 2.5 × {branch.get('WT_mm', 0):.2f} + {pad_T:.2f}) "
+                    f"= {ce.get('L_zone_mm')} mm"
+                ),
+            })
+            area_components = [
+                {"code": "A1", "label": "Ana hat artı alanı", "value": ce.get("A1"),
+                 "formula": f"A1 = (wt_h_net − t_h) × d = ({wt_h_net:.2f} − {t_req_h:.2f}) × {d_hole:.2f} = {ce.get('A1'):.2f} mm²"},
+                {"code": "A2", "label": "Branşman artı alanı", "value": ce.get("A2"),
+                 "formula": f"A2 = 2 × (wt_b_net − t_b) × L_zone × f_branch = 2 × ({wt_b_net:.2f} − {t_req_b:.2f}) × {ce.get('L_zone_mm')} × {f_branch:.3f} = {ce.get('A2'):.2f} mm²"},
+                {"code": "A3", "label": "Kaynak alanı", "value": ce.get("A3"),
+                 "formula": f"A3 = köşe kaynak dikişleri kesit alanı = {ce.get('A3'):.2f} mm²"},
+                {"code": "A4", "label": "Manşon takviye alanı", "value": ce.get("A4"),
+                 "formula": f"A4 = t_sleeve × (min(L_s, 2d) − d) × f_sleeve = {pad_T:.2f} × {ce.get('member_length_effective_mm')} × {f_sleeve:.3f} = {ce.get('A4'):.2f} mm²"},
+            ]
+        else:
+            w_i = terms["w_inner"]
+            w_o = terms["w_outer"]
+            a3_formula = (
+                f"A3 = 2 × (0.5 × w_i²) + 2 × (0.5 × w_o²) = "
+                f"2 × (0.5 × {w_i:.2f}²) + 2 × (0.5 × {w_o:.2f}²) = {A3:.2f} mm²"
+                if has_pad_flag else
+                f"A3 = 2 × (0.5 × w_i²) = 2 × (0.5 × {w_i:.2f}²) = {A3:.2f} mm²"
+            )
+            a1_note = ""
+            if terms["a1_reason"] == "hot_tap":
+                a1_note = "Hot Tap: saha belirsizliği nedeniyle güvenli tarafta A1 = 0."
+                a1_formula = "A1 = 0.0 mm² (Hot Tap)"
+            elif terms["a1_reason"] == "insufficient":
+                a1_note = f"wt_h_net ({wt_h_net:.2f} mm) ≤ t_h ({t_req_h:.2f} mm) olduğundan A1 = 0."
+                a1_formula = "A1 = 0.0 mm² (net kalınlık yeterli fazlalık vermiyor)"
+            else:
+                a1_formula = f"A1 = (wt_h_net − t_h) × d_opening = ({wt_h_net:.2f} − {t_req_h:.2f}) × {terms['d_opening']:.2f} = {A1:.2f} mm²"
+            area_components = [
+                {"code": "A1", "label": "Ana hat artı alanı", "value": round(A1, 2),
+                 "formula": a1_formula, "note": a1_note},
+                {"code": "A2", "label": "Branşman artı alanı", "value": round(A2, 2),
+                 "formula": f"A2 = 2 × max(0, wt_b_net − t_b) × L_eff × f_branch = 2 × max(0, {wt_b_net:.2f} − {t_req_b:.2f}) × {L_reinforcement:.2f} × {f_branch:.3f} = {A2:.2f} mm²"},
+                {"code": "A3", "label": "Kaynak alanı", "value": round(A3, 2), "formula": a3_formula},
+                {"code": "A4", "label": "Ped takviye alanı", "value": round(A4, 2),
+                 "formula": (f"A4 = 2 × W_p × T_pad × f_sleeve = 2 × {W_p:.2f} × {pad_T:.2f} × {f_sleeve:.3f} = {A4:.2f} mm²"
+                             if has_pad_flag else "A4 = 0.0 mm² (ped/manşon yok)")},
+            ]
+        area_details = {
+            "is_exempt": is_exempt,
+            "is_sleeve_type": is_sleeve_type,
+            "A_req": round(A_req, 2),
+            "A_avail": round(0.0 if is_exempt else A_avail, 2),
+            "zone": area_zone,
+            "components": area_components,
+            "basis": "ASME B31.8-2025 Para 831.4.1 + Mandatory Appendix F (repo mühendislik yorumu)",
+        }
+
         return {
-            "status": "OK",
+            "status": dm_res.get("status", "OK"),
+            "Pressure_Adequate": dm_res.get("Pressure_Adequate", True),
+            "pressure_adequate_h": dm_res.get("pressure_adequate_h", True),
+            "pressure_adequate_b": dm_res.get("pressure_adequate_b", True),
             "P_MPa": self.P_MPa,
             "E_h": dm_res.get("E_h", self.E),
             "E_b": dm_res.get("E_b", self.E),
@@ -1886,6 +2350,7 @@ class PipelineExpertEngine:
             "wt_h_net": wt_h_net,
             "wt_b_net": wt_b_net,
             "d_hole": d_hole,
+            "d_hole_basis": d_hole_basis,
             "d_opening": d_opening,
             "A_req": A_req,
             "A_avail": 0.0 if is_exempt else A_avail,
@@ -1907,6 +2372,7 @@ class PipelineExpertEngine:
             "L_eff": L_reinforcement,
             "L1": L_1,
             "L2": L_2,
+            "area_details": area_details,
             "min_welds": min_welds,
             "auto_pad": auto_pad,
             "hydrotest": hydrotest,
@@ -1914,6 +2380,8 @@ class PipelineExpertEngine:
             "sif": sif,
             "combined_stress": combined_stress,
             "split_tee": split_tee,
+            "complete_encirclement": complete_encirclement,
+            "hot_tap_sleeve": hot_tap_sleeve,
             "weep_hole_spec": "1/8 in - 1/4 in (3.2 - 6.4 mm) NPT / Open during welding",
             "Recommendations": dm_res["Recommendations"],
             "messages": self.messages,
@@ -1961,6 +2429,7 @@ class PipelineExpertEngine:
             .formula { background: #F8F9F9; padding: 6px 10px; border-left: 4px solid #3498DB; margin: 6px 0; font-family: Consolas, monospace; font-size: 12px; }
             .note-box { background: #FEF9E7; border: 1px solid #F39C12; padding: 8px 12px; border-radius: 4px; margin: 10px 0; }
             .danger-box { background: #FDEDEC; border: 1px solid #E74C3C; padding: 8px 12px; border-radius: 4px; margin: 10px 0; }
+            .info-box { background: #EBF5FB; border: 1px solid #3498DB; padding: 8px 12px; border-radius: 4px; margin: 10px 0; }
             .sign-table { width: 100%; margin-top: 30px; border: 1px solid #BDC3C7; }
             .sign-table td { height: 40px; vertical-align: bottom; text-align: center; }
         </style>
@@ -1971,6 +2440,9 @@ class PipelineExpertEngine:
         if res.get("is_exempt", False):
             status_text = "PASS (STANDART ÜRÜN MUAFİYETİ)"
             status_class = "pass"
+        if not res.get("Pressure_Adequate", True):
+            status_text = "WARNING - BASINÇ DAYANIMI YETERSİZ"
+            status_class = "fail"
 
         header_box = f"""
         <table class="header-table">
@@ -2012,6 +2484,29 @@ class PipelineExpertEngine:
         </table>
         """
 
+        # Alan telafisi detay satırları (area_details — pad/sleeve dalı, sayısal ikame)
+        _ad = res.get("area_details") or {}
+        _zone_rows = "".join(
+            "<tr><td>{}</td><td>{} mm</td><td>{}</td></tr>".format(
+                z.get("label", ""), z.get("value", "-"), z.get("formula", "")
+            )
+            for z in _ad.get("zone", [])
+        )
+        _comp_rows = "".join(
+            "<tr><td><b>{}</b> — {}</td><td>{}</td><td>{}{}</td></tr>".format(
+                c.get("code", ""), c.get("label", ""), c.get("value", "-"),
+                c.get("formula", ""),
+                (" <i>({})</i>".format(c["note"]) if c.get("note") else ""),
+            )
+            for c in _ad.get("components", [])
+        )
+        _exempt_note = (
+            '<div class="info-box"><b>Standart Ürün Muafiyeti:</b> Seçilen donanım tipi için alan telafisi '
+            'üretici kalifikasyonu kapsamındadır (ASME B31.8-2025 Para 831.4.2). Aşağıdaki değerler '
+            'yalnızca bilgilendirme amaçlı hesaplanmıştır.</div>'
+            if _ad.get("is_exempt") else ""
+        )
+
         calc_html = f"""
         <h2>2. ASME B31.8 Basınç Dayanımı ve Alan Telafisi Analizi</h2>
 
@@ -2019,22 +2514,26 @@ class PipelineExpertEngine:
         <div class="formula">t_req = (P × D) / (2 × S × F × E × T)</div>
         <table>
             <tr><th>Bileşen</th><th>Gerekli Basınç Kalınlığı (t_req)</th><th>Net Et Kalınlığı (wt_net)</th><th>Satın Alma Min. Kalınlığı (t_order)</th><th>Durum</th></tr>
-            <tr><td><b>Ana Hat (Header)</b></td><td>{res.get('t_h_mm',0):.3f} mm</td><td>{res.get('wt_h_net',0):.3f} mm</td><td>{res.get('t_order_h_mm',0):.3f} mm</td><td class="pass">UYGUN</td></tr>
-            <tr><td><b>Branşman (Branch)</b></td><td>{res.get('t_b_mm',0):.3f} mm</td><td>{res.get('wt_b_net',0):.3f} mm</td><td>{res.get('t_order_b_mm',0):.3f} mm</td><td class="pass">UYGUN</td></tr>
+            <tr><td><b>Ana Hat (Header)</b></td><td>{res.get('t_h_mm',0):.3f} mm</td><td>{res.get('wt_h_net',0):.3f} mm</td><td>{res.get('t_order_h_mm',0):.3f} mm</td><td class="{'pass' if res.get('pressure_adequate_h', True) else 'fail'}">{'UYGUN' if res.get('pressure_adequate_h', True) else 'YETERSİZ'}</td></tr>
+            <tr><td><b>Branşman (Branch)</b></td><td>{res.get('t_b_mm',0):.3f} mm</td><td>{res.get('wt_b_net',0):.3f} mm</td><td>{res.get('t_order_b_mm',0):.3f} mm</td><td class="{'pass' if res.get('pressure_adequate_b', True) else 'fail'}">{'UYGUN' if res.get('pressure_adequate_b', True) else 'YETERSİZ'}</td></tr>
         </table>
 
-        <h3>2.2 Alan Telafisi (Area Replacement - Annex F)</h3>
+        <h3>2.2 Alan Telafisi (Area Replacement - Appendix F)</h3>
         <div class="formula">A_req = (d_hole × t_h) / sin(β) | A_avail = A1 + A2 + A3 + A4</div>
+        {_exempt_note}
         <table>
-            <tr><th>Alan Bileşeni</th><th>Değer (mm²)</th><th>Açıklama / Formül</th></tr>
-            <tr><td><b>A_req (Gerekli Alan)</b></td><td><b>{res.get('A_req',0):.2f}</b></td><td>Delik açıklığı × t_h = {res.get('d_opening', res.get('d_hole',0)):.1f} mm × {res.get('t_h_mm',0):.2f} mm</td></tr>
-            <tr><td>A1 (Ana Boru Artı Alanı)</td><td>{res.get('A1',0):.2f}</td><td>(wt_h_net - t_h) × d_opening ({'Hot Tap: 0.0' if self.op_type=='Hot Tap' else 'Normal'})</td></tr>
-            <tr><td>A2 (Branşman Artı Alanı)</td><td>{res.get('A2',0):.2f}</td><td>2 × (wt_b_net - t_b) × L_eff × f_branch</td></tr>
-            <tr><td>A3 (Kaynak Dikişi Alanı)</td><td>{res.get('A3',0):.2f}</td><td>Köşe kaynak dikişleri kesit alanı katkısı</td></tr>
-            <tr><td>A4 (Takviye Pedi / Sleeve)</td><td>{res.get('A4',0):.2f}</td><td>2 × W_p × T_pad × f_sleeve</td></tr>
-            <tr><td><b>A_avail (Mevcut Alan)</b></td><td><b>{res.get('A_avail',0):.2f}</b></td><td>A1 + A2 + A3 + A4</td></tr>
+            <tr><th>Alan Bileşeni</th><th>Değer (mm²)</th><th>Hesap Detayı (sayısal ikame)</th></tr>
+            <tr><td><b>A_req (Gerekli Alan)</b></td><td><b>{res.get('A_req',0):.2f}</b></td><td>A_req = d_opening × t_h = {res.get('d_opening', res.get('d_hole',0)):.2f} mm × {res.get('t_h_mm',0):.3f} mm = {res.get('A_req',0):.2f} mm²</td></tr>
+            {_comp_rows}
+            <tr><td><b>A_avail (Mevcut Alan)</b></td><td><b>{res.get('A_avail',0):.2f}</b></td><td>A_avail = A1 + A2 + A3 + A4</td></tr>
             <tr><td class="{status_class}"><b>Genel Sonuç</b></td><td class="{status_class}"><b>{status_text}</b></td><td>Eksik Alan: {res.get('Missing',0):.2f} mm²</td></tr>
         </table>
+        <h4>Takviye Bölge Limitleri (Reinforcement Zone)</h4>
+        <table>
+            <tr><th>Limit</th><th>Değer</th><th>Hesap</th></tr>
+            {_zone_rows}
+        </table>
+        {('<div class="danger-box"><b>Basınç Dayanımı Uyarısı:</b> Ana hat ve/veya branşman net et kalınlığı ASME B31.8 Barlow gerekli kalınlığının altındadır. Hesaplama bilgilendirme amaçlı sürdürülmüştür; bu tasarım basınç dayanımı açısından UYGUN DEĞİLDİR.</div>') if not res.get("Pressure_Adequate", True) else ''}
         """
 
         # Güvenlik, Kaynak ve Testler
@@ -2047,13 +2546,13 @@ class PipelineExpertEngine:
             <tr>
                 <td>Min. Kaynak Boğazı (t_c)</td>
                 <td>{min_w.get('t_c_min',0):.1f} mm</td>
-                <td>ASME B31.8 Fig. I-4: min(0.7×t_b, 6.4 mm)</td>
+                <td>ASME B31.8-2025 Fig. I-1.1-1: W1 = 3B/8, min 6.35 mm (boğaz = 0.707 × bacak)</td>
                 <td><span class="pass">Uygunluk Doğrulandı</span></td>
             </tr>
             <tr>
                 <td>Branşman Kaynak Bacak Boyu</td>
                 <td>Min. {min_w.get('w_inner_min',0):.1f} mm</td>
-                <td>w_inner >= t_c / 0.7071</td>
+                <td>W1 = 3B/8 (min 6.35 mm)</td>
                 <td>WPS gereksinimi</td>
             </tr>
             <tr>
@@ -2106,32 +2605,37 @@ class PipelineExpertEngine:
             </tr>
             <tr>
                 <td>Cutter Açıklığı</td>
-                <td>Maks. cutter OD ≤ {ht.get('cutter_max_od_mm','-')} mm</td>
+                <td>Maks. cutter OD ≤ {ht.get('cutter_max_od_mm', 0):.1f} mm</td>
                 <td>Branşman iç çapı (ID)</td>
                 <td>-</td>
             </tr>
         </table>
         """
 
-        # Split Tee / Sleeve mekanik doğrulaması (Type A/B)
+        # Split Tee / Full Encirclement Sleeve (ASME B31.8-2025)
         st = res.get("split_tee")
         if st:
+            pe = st.get("pressurized") or {}
+            st_rows = [
+                "<tr><td>Yöntem</td><td>Complete encirclement alan yöntemi</td><td>ASME B31.8-2025 Appendix F (Fig. F-2.1.5-1)</td><td>—</td></tr>",
+                f"<tr><td>A_req (gerekli alan)</td><td>{st.get('A_R','-')} mm²</td><td>A_req = d × t</td><td>—</td></tr>",
+                f"<tr><td>A_avail (mevcut alan)</td><td>{st.get('A_avail','-')} mm²</td><td>A1={st.get('A1','-')}, A2={st.get('A2','-')}, A3={st.get('A3','-')}, A4={st.get('A4','-')}</td><td><span class=\"{'pass' if st.get('pass') else 'fail'}\">{'UYGUN' if st.get('pass') else 'YETERSİZ'}</span></td></tr>",
+                f"<tr><td>Manşon (T_sleeve / boy)</td><td>{st.get('T_sleeve_mm','-')} mm / {st.get('sleeve_length_mm','-')} mm</td><td>Takviye elemanı (Mandatory Appendix I, Fig. I-1.1-3)</td><td>—</td></tr>",
+            ]
+            if st.get('sleeve_pressure_containing'):
+                st_rows.append("<tr><td>Basınç sınırı</td><td>Basınçlı (uçları çevresel kaynaklı)</td><td>Para 831.4.2(j) / Fig. I-1.1-4</td><td>—</td></tr>")
+            else:
+                st_rows.append("<tr><td>Basınç sınırı</td><td>Basınç tutmayan takviye manşonu</td><td>Para 831.4.2(c)/(f)</td><td>—</td></tr>")
+            if pe:
+                st_rows.append(f"<tr><td>Manşon hoop kalınlığı (t_hoop)</td><td>{pe.get('t_hoop_mm','-')} mm</td><td>P·D/(2·S·E·F·T), E={pe.get('E_factor','-')}</td><td>—</td></tr>")
+                st_rows.append(f"<tr><td>Uç fillet kaynak bacağı</td><td>{pe.get('end_fillet_leg_min_mm','-')}–{pe.get('end_fillet_leg_max_mm','-')} mm</td><td>1.0t+gap … 1.4t+gap (Fig. I-1.1-4)</td><td>—</td></tr>")
+                st_rows.append(f"<tr><td>Etkin kaynak boğazı</td><td>{pe.get('effective_throat_min_mm','-')}–{pe.get('effective_throat_max_mm','-')} mm</td><td>0.7t … 1.0t</td><td>—</td></tr>")
+                st_rows.append(f"<tr><td>Uç yüz kalınlığı</td><td>≤ {pe.get('end_face_limit_mm','-')} mm</td><td>≤1.4×hoop, pah ≥45°</td><td><span class=\"{'pass' if pe.get('pass') else 'fail'}\">{'UYGUN' if pe.get('pass') else 'YETERSİZ'}</span></td></tr>")
             safety_html += f"""
-        <h2>3b. Split Tee / Sleeve Mekanik Doğrulaması ({st.get('split_type','-')})</h2>
+        <h2>3b. Split Tee / Full Encirclement Sleeve Doğrulaması (ASME B31.8-2025)</h2>
         <table>
             <tr><th>Parametre</th><th>Değer</th><th>Kriter / Standart</th><th>Değerlendirme</th></tr>
-            <tr>
-                <td>Manşon Et Kalınlığı (T_sleeve)</td>
-                <td>{st.get('T_sleeve_mm','-')} mm</td>
-                <td>T_sleeve ≥ t_req_h ({st.get('t_req_h_mm','-')} mm)</td>
-                <td><span class="{'pass' if st.get('thickness_pass') else 'fail'}">{st.get('status','-')}</span></td>
-            </tr>
-            <tr>
-                <td>Min. Manşon Boyu</td>
-                <td>≈ {st.get('min_sleeve_length_mm','-')} mm</td>
-                <td>ASME PCC-2 / ASME B31.8 Para 831.4.2(h)</td>
-                <td>-</td>
-            </tr>
+            {''.join(st_rows)}
         </table>
         """
 
@@ -2174,11 +2678,11 @@ class PipelineExpertEngine:
             {sign_html}
             <hr style="margin-top:20px; border:none; border-top:1px solid #BDC3C7;">
             <p style="font-size:10px; color:#7F8C8D; text-align:center;">
-                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System V3.6.0 tarafından üretilmiştir.
+                Bu mühendislik hesap raporu ASME B31.8 Pipeline Designer Expert System {__version_label__} tarafından üretilmiştir.
             </p>
             <p style="font-size:9px; color:#95A5A6; text-align:center; max-width:760px; margin:4px auto;">
                 <b>Uygunluk Bildirimi:</b> Clause referansları (Para/Tablo numaraları) bilgilendirme amaçlıdır; normatif değerler
-                lisanslı ASME B31.8, API 1104, API RP 2201, MSS SP-97, NACE MR0175/ISO 15156, ASME PCC-2 ve EN/ASTM malzeme
+                lisanslı ASME B31.8-2025, API 1104, API RP 2201, MSS SP-97, NACE MR0175/ISO 15156 ve EN/ASTM malzeme
                 standart kopyaları ile doğrulanmalıdır. "Repo mühendislik yorumu" olarak işaretlenen eşikler ve heuristikler
                 muhafazakâr mühendislik kabulleridir. Nihai uygunluk, satın alma ve saha uygulama kararı sorumlu mühendise aittir.
             </p>
@@ -2204,8 +2708,29 @@ from engine_math import (  # noqa: F401,E402
     evaluate_combined_stress,
     calculate_hot_tap_safe_pressure,
     evaluate_hot_tap_flow_and_cooling,
-    evaluate_split_tee_design,
+    evaluate_complete_encirclement_reinforcement,
+    evaluate_pressurized_hot_tap_sleeve,
 )
+
+
+def _nps_to_number(nps: Any) -> Optional[float]:
+    """'12' -> 12.0, '1 1/2' -> 1.5, 'Manuel 355.6mm' -> None."""
+    s = str(nps or "").strip()
+    if not s:
+        return None
+    if " " in s and "/" in s:
+        s = s.split()[-1]
+    if "/" in s:
+        try:
+            num, den = s.split("/")
+            return float(num) / float(den)
+        except (ValueError, ZeroDivisionError):
+            return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
 
 def _normalize_selected_fitting_label(label):
     """Map UI fitting labels to comparable fitting tokens."""

@@ -95,21 +95,21 @@ class TestAcuteAngleBranch:
 
 
 class TestMinimumWeldSizes:
-    """ASME B31.8 Fig. I-4 & Para 831.4.2 minimum weld sizing tests."""
+    """ASME B31.8-2025 Mandatory Appendix I (Fig. I-1.1-1) minimum weld sizing tests."""
 
     def test_minimum_throat_and_legs(self):
-        # branch wt_net = 8.0 mm -> t_c = min(0.7 * 8.0, 6.4) = min(5.6, 6.4) = 5.6 mm
-        # w_inner_min = 5.6 / 0.7071 = 7.92 mm
+        # B = 8.0 mm -> W1 = max(3B/8, 6.35) = max(3.0, 6.35) = 6.35 mm
+        # throat = 0.707 * 6.35 = 4.49 mm
         res = evaluate_minimum_weld_sizes(wt_b_net=8.0, T_pad=10.0)
-        assert res["t_c_min"] == 5.6
-        assert pytest.approx(res["w_inner_min"], 0.05) == 7.92
-        assert res["w_outer_min"] == 5.0  # 0.5 * 10.0
+        assert res["w_inner_min"] == 6.35
+        assert pytest.approx(res["t_c_min"], 0.02) == 4.49
+        assert res["w_outer_min"] == 6.35
 
-    def test_thick_branch_caps_tc_at_6_4mm(self):
-        # branch wt_net = 20.0 mm -> 0.7 * 20 = 14 mm > 6.4 mm -> capped at 6.4 mm
+    def test_thick_branch_scales_with_3b_over_8(self):
+        # B = 20.0 mm -> W1 = 3*20/8 = 7.5 mm (> 6.35 mm min)
         res = evaluate_minimum_weld_sizes(wt_b_net=20.0, T_pad=12.0)
-        assert res["t_c_min"] == 6.4
-        assert pytest.approx(res["w_inner_min"], 0.05) == 9.05
+        assert res["w_inner_min"] == 7.5
+        assert pytest.approx(res["t_c_min"], 0.02) == 5.30
 
     def test_engine_warns_on_undersized_welds(self):
         run = {"OD_mm": 609.6, "WT_mm": 14.3, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}

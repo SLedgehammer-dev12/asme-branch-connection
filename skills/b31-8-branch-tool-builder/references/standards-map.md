@@ -2,7 +2,7 @@
 
 ## Baslangic Varsayimi
 
-- Baz alinan referans ASME B31.8-2020'dir.
+- Baz alinan referans ASME B31.8-2025'tir.
 - Bu skill standard metnini kopyalamaz.
 - Yalnizca paragraf, tablo veya bolum numarasi ile atif ver ve kisa muhendislik yorumu ekle.
 - Emin olmadigin normatif bir iddiayi kesin ifade etme. "licensed copy ile dogrula" notu dus.
@@ -17,7 +17,10 @@
 
 ## Dikkat Gerektiren Noktalar
 
-- Kod ve UI bazi yerlerde "Annex F" ifadesi kullanir. Bunu yeni normatif iddialar icin genisletme. Yeni madde ekleyeceksen kullanicinin lisansli standard kopyasi ile dogrulamayi not et.
+- Alan telafisi referansi ASME B31.8-2025 Mandatory Appendix F (Fig. F-2.1.5-1) ve Para 831.4.1'dir. Eski "Annex F" ifadesi kaldirildi.
+- Complete encirclement / split tee icin alan yontemi uygulanir; "muaf" degildir. Basincli hot tap tee mansoni icin Para 831.4.2(j) ve Fig. I-1.1-4, complete encirclement icin Fig. I-1.1-3 kullanilir.
+- ASME PCC-2 referanslari bu fazda kaldirilmistir; yalnizca ASME B31.8-2025 kullanilir. ASME B31.3 bransman hesabi ileriki faza birakilmistir.
+- Yeni bir normatif iddia eklerken lisansli standart kopyasi ile dogrulamayi not et.
 - Hot tap icin `A1 = 0.0` kabulu repo icindeki muhafazakar muhendislik tercihidir. Bunu dogrudan standart alintisi gibi sunma.
 - Tee, olet, sockolet, split tee ve sleeve icin `is_exempt` davranisi repo yorumudur; bunu degistireceksen hem clause gerekcesini hem de rapor metnini birlikte guncelle.
 

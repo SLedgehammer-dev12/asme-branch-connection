@@ -96,8 +96,11 @@ class TestFullWorkflowHotTap:
 
         analysis = eng.analyze(run, branch, selected_fitting_type="SPLIT TEE")
         assert analysis["status"] == "OK"
-        assert analysis["is_exempt"] is True
-        assert analysis["A1"] == 0.0
+        # Split tee artık muaf değil: Appendix F alan yöntemi uygulanır
+        assert analysis["is_exempt"] is False
+        assert analysis["split_tee"] is not None
+        assert analysis["split_tee"]["A_R"] > 0.0
+        assert "A_avail" in analysis["split_tee"]
 
     def test_hot_tap_moderate_stress_large_branch(self):
         run = _make_run_data(od_mm=406.4, wt_mm=12.7, smys=358.0, std="API 5L", grade="X52", nps="16")
@@ -115,7 +118,8 @@ class TestFullWorkflowHotTap:
 
 
 class TestFailureScenarios:
-    def test_pressure_fail_early_exit(self):
+    def test_pressure_insufficient_warns_and_continues(self):
+        # Aşırı basınç + ince cidar: artık durdurmaz, WARNING ile öneri üretir.
         run = _make_run_data()
         branch = _make_branch_data()
         eng = PipelineExpertEngine(
@@ -124,8 +128,9 @@ class TestFailureScenarios:
             20.0, 241.0,
         )
         result = eng.evaluate_decision_matrix(run, branch)
-        assert result["status"] == "FAIL"
-        assert len(result["errors"]) > 0
+        assert result["status"] == "WARNING"
+        assert result["Pressure_Adequate"] is False
+        assert len(result["Recommendations"]) >= 1
 
     def test_invalid_branch_larger_than_run(self):
         run = _make_run_data()

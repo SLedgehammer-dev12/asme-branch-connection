@@ -98,7 +98,7 @@ def render_sidebar_inputs():
     hot_tap_flow_ms = None
     hot_tap_fluid = "gas"
     hot_tap_d_pen_mm = 2.0
-    split_tee_type = "Type B"
+    sleeve_pressure_containing = True
     if op_type == "Hot Tap":
         st.divider()
         st.subheader("Hot Tap Güvenlik Parametreleri")
@@ -124,17 +124,22 @@ def render_sidebar_inputs():
             step=0.5,
             help="API RP 2201 / Battelle: tipik ~1.5-2.5 mm",
         )
-        split_tee_type = st.radio(
-            "Split Tee Tipi",
-            ["Type B", "Type A"],
-            format_func=lambda x: "Type B (basınç taşıyan manşon)" if x == "Type B" else "Type A (takviye manşonu)",
-        )
+        sleeve_pressure_containing = st.radio(
+            "Manşon basınç sınırı (ASME B31.8-2025)",
+            ["basınçlı", "takviye"],
+            index=0,
+            format_func=lambda x: (
+                "Basınçlı hot tap tee manşonu (uçları çevresel kaynaklı) — 831.4.2(j)"
+                if x == "basınçlı"
+                else "Basınç tutmayan takviye manşonu (complete encirclement) — 831.4.2(c)/(f)"
+            ),
+        ) == "basınçlı"
 
     return (
         design_temp, op_type, P_val, P_unit, F, 1.0, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
         facility_type, "Seamless (SMLS)", location_class,
-        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, split_tee_type
+        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, sleeve_pressure_containing
     )
 
 
@@ -238,4 +243,15 @@ def render_pipe_inputs():
         st.caption(f"Nominal-equivalent Run NPS: {db.describe_nominal_equivalent_nps(run_data['NPS'])}")
         st.caption(f"Nominal-equivalent Branch NPS: {db.describe_nominal_equivalent_nps(branch_data['NPS'])}")
 
-    return run_data, branch_data
+    # A_req delik çapı (d_hole) kabulü — ASME B31.8-2025 Para 831.4.1(c)
+    # Widget key="d_hole_type" session_state'i otomatik kalıcı tutar.
+    d_hole_type = st.radio(
+        "A_req delik çapı (d_hole) kabulü",
+        ["ID", "OD"],
+        index=0,
+        key="d_hole_type",
+        format_func=lambda x: "İç çap (ID) - B31.8 varsayılanı" if x == "ID" else "Dış çap (OD) - Set-In (Muhafazakar)",
+        help="ASME B31.8-2025 Para 831.4.1(c): d = açıklık/branşman iç çapı. Varsayılan ID.",
+    )
+
+    return run_data, branch_data, d_hole_type

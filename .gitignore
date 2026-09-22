@@ -23,6 +23,7 @@ venv/
 # IDE
 .vscode/
 .idea/
+.continue/
 
 # Test
 .pytest_cache/
@@ -35,3 +36,6 @@ logs/project_logbook*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Lisanslı standart dokümanları (telif hakkı nedeniyle commit edilmez)
+ASME B31.8*.pdf

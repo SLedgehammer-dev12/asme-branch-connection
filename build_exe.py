@@ -1,5 +1,5 @@
 # =============================================================================
-# ASME Branch Connection V3.2 — Cross-Platform Build Script
+# ASME Branch Connection — Cross-Platform Build Script
 # PyInstaller kullanarak Windows .exe ve macOS Native App / Binary derler
 # =============================================================================
 import PyInstaller.__main__
@@ -35,6 +35,8 @@ pyinstaller_args = [
     f'--add-data=engine_contracts.py{sep}.',
     f'--add-data=units.py{sep}.',
     f'--add-data=report_pdf.py{sep}.',
+    f'--add-data=version.py{sep}.',
+    f'--add-data=update_checker.py{sep}.',
     f'--add-data=fitting_database.py{sep}.',
     f'--add-data=assets{sep}assets',
     f'--add-data=logs{sep}logs',
@@ -47,6 +49,9 @@ pyinstaller_args = [
     '--hidden-import=engine_contracts',
     '--hidden-import=units',
     '--hidden-import=report_pdf',
+    '--hidden-import=version',
+    '--hidden-import=update_checker',
+    '--hidden-import=certifi',
     '--hidden-import=reportlab',
     '--hidden-import=reportlab.platypus',
     '--hidden-import=reportlab.lib.pagesizes',
@@ -64,6 +69,7 @@ pyinstaller_args = [
     '--hidden-import=ui.ui_diagram_3d',
     '--hidden-import=ui.ui_inputs',
     '--hidden-import=ui.ui_utils',
+    '--hidden-import=ui.ui_update',
     '--copy-metadata=streamlit',
     '--copy-metadata=plotly',
     '--noupx',  # Antivirus false positive onleyici

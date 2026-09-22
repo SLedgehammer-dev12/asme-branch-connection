@@ -1,6 +1,6 @@
 ---
 name: b31-8-branch-tool-builder
-description: Repo-ozel ASME B31.8-2020 branch connection araci gelistirme rehberi. 5-harmony-agent: engineer (engine.py), database (fitting_database.py), ui-builder (app.py/ui), qa-guard (tests), build-deploy (EXE/packaging). Use when Codex bu repo uzerinde branch connection hesaplari, karar matrisi, fitting secimi, hot tap kontrolleri, area replacement, raporlama, dogrulama veya fitting ve boru veri tabani genisletmeleri yapacaksa.
+description: Repo-ozel ASME B31.8-2025 branch connection araci gelistirme rehberi. 5-harmony-agent: engineer (engine.py), database (fitting_database.py), ui-builder (app.py/ui), qa-guard (tests), build-deploy (EXE/packaging). Use when Codex bu repo uzerinde branch connection hesaplari, karar matrisi, fitting secimi, hot tap kontrolleri, area replacement, raporlama, dogrulama veya fitting ve boru veri tabani genisletmeleri yapacaksa.
 ---
 
 # B31.8 Branch Tool Builder

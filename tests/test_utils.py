@@ -133,7 +133,7 @@ class TestSelectedFittingMatchesRecommendation:
         assert result["matches_decision_matrix"]
         assert result["matching_types"] == []
 
-    def test_no_match(self):
+    def test_no_match_in_recommendations(self):
         recs = [{"Type": "WELDING TEE (FACTORY)", "Priority": "Primary"}]
         result = _evaluate_selected_fitting_against_recommendations("REINFORCING PAD", recs)
         assert not result["matches_decision_matrix"]

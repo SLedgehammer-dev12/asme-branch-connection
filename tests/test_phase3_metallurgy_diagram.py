@@ -115,6 +115,23 @@ class TestCalculationDossierReport:
         assert "Hazırlayan" in report
         assert "Onaylayan" in report
 
+    def test_html_report_contains_numeric_area_details(self):
+        run = {"OD_mm": 609.6, "WT_mm": 20.0, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "24"}
+        branch = {"OD_mm": 273.0, "WT_mm": 12.0, "SMYS_MPa": 360.0, "Standard": "API 5L", "Grade": "X52", "NPS": "10"}
+        eng = PipelineExpertEngine(
+            P_val=70.0, P_unit="Barg", F=0.72, E=1.0, T=1.0, CA_mm=1.5,
+            op_type="New Construction", weld_legs={"inner": 6.0, "outer": 6.0},
+            pad_props={"has_pad": True, "T_pad": 10.0, "D_pad": 471.0},
+            design_temp=20.0, fitting_smys=360.0,
+        )
+        res = eng.analyze(run, branch, selected_fitting_type="REINFORCING PAD")
+        report = eng.generate_html_report(run, branch, res)
+        assert "Hesap Detayı" in report
+        assert "Takviye Bölge Limitleri" in report
+        assert "L_eff = min(" in report
+        assert "A2 = 2 ×" in report
+        assert "A4 = 2 × W_p" in report
+
 
 from ui.ui_diagram import create_cross_section_figure
 from ui.ui_diagram_3d import create_3d_cad_model_figure
@@ -183,8 +200,8 @@ class TestDiagramGeneration:
         assert any("Socket Bore" in n for n in sock)
         # Welding Tee -> yaka & boyun
         assert any("Welding Tee Yaka" in n for n in names("WELDING TEE (Factory)", pad_off))
-        # Split Tee Type B -> full encirclement manşon + boyuna + uç kaynaklar
-        ar_b = {"branch_angle_deg": 90.0, "split_tee": {"split_type": "Type B", "T_sleeve_mm": 12.0}}
+        # Split Tee (basınçlı manşon) -> full encirclement manşon + boyuna + uç kaynaklar
+        ar_b = {"branch_angle_deg": 90.0, "split_tee": {"sleeve_pressure_containing": True, "T_sleeve_mm": 12.0}}
         st_names = [t.name for t in create_3d_cad_model_figure(run, branch, ar_b, pad_on, fitting_type="SPLIT TEE").data]
         assert any("Full Encirclement Sleeve" in n for n in st_names)
         assert any("Boyuna Kaynağı" in n for n in st_names)
@@ -200,3 +217,83 @@ class TestDiagramGeneration:
         # Genel detay katmanları her modelde mevcut: açık ağız halkası + ebat etiketi
         assert any("Açık Ağız" in n for n in fab)
         assert any("Ebat" in n for n in fab)
+        # PCC-2 kalıntısı is_type_b artık kullanılmaz (kaynak dosyada grep YOK)
+        import pathlib
+        src = pathlib.Path(
+            __import__("os").path.join(
+                __import__("os").path.dirname(
+                    __import__("os").path.dirname(__import__("os").path.abspath(__file__))
+                ),
+                "ui", "ui_diagram_3d.py",
+            )
+        ).read_text(encoding="utf-8")
+        assert "is_type_b" not in src
+
+    def test_2d_title_uses_appendix_not_stale_ref(self):
+        """2D başlığı Appendix F / Fig. I-1.1-1 kullanmalı; eski 'Fig. F-1 / I-4' YOK."""
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {
+            "wt_h_net": 12.8, "wt_b_net": 7.8, "t_h_mm": 5.9, "t_b_mm": 3.9,
+            "d_hole": 254.4, "d_hole_basis": "ID", "L_eff": 19.5,
+            "A1": 0.0, "A2": 304.2, "A3": 50.0, "A4": 635.0,
+            "branch_angle_deg": 90.0, "is_exempt": False,
+        }
+        fig = create_cross_section_figure(
+            run, branch, analysis_res,
+            {"has_pad": True, "T_pad": 10.0, "D_pad": 400.0},
+            {"inner": 6.0, "outer": 6.0},
+            fitting_type="REINFORCING PAD", d_hole_type="ID",
+        )
+        title = fig.layout.title.text
+        assert "Appendix F" in title
+        assert "I-1.1-1" in title
+        assert "Fig. F-1 / I-4" not in title
+        # Weep hole yalnız REINFORCING PAD'da görünür
+        assert any("Weep Hole" in (t.name or "") for t in fig.data)
+
+    def test_2d_sleeve_no_weep_and_has_zone(self):
+        """SLEEVE: weep hole YOK, Appendix F 2d şeridi VAR."""
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {
+            "wt_h_net": 12.8, "wt_b_net": 7.8, "t_h_mm": 5.9, "t_b_mm": 3.9,
+            "d_hole": 254.4, "d_hole_basis": "ID", "L_eff": 19.5,
+            "A1": 0.0, "A2": 304.2, "A3": 50.0, "A4": 635.0,
+            "branch_angle_deg": 90.0, "is_exempt": False,
+            "split_tee": {"sleeve_pressure_containing": True},
+        }
+        fig = create_cross_section_figure(
+            run, branch, analysis_res,
+            {"has_pad": True, "T_pad": 12.0, "D_pad": 500.0},
+            {"inner": 6.0, "outer": 6.0},
+            fitting_type="FULL ENCIRCLEMENT SLEEVE", d_hole_type="ID",
+            op_type="Hot Tap",
+        )
+        names = [t.name or "" for t in fig.data]
+        assert not any("Weep Hole" in n for n in names)
+        assert any("Appendix F Manşon Bölgesi" in n for n in names)
+        assert any("Manşon (Sleeve)" in n for n in names)
+        assert "831.4.2(j)" in fig.layout.title.text
+
+    def test_3d_uses_real_sleeve_length(self):
+        """3D manşon boyu gerçek sleeve_length_mm kullanır (D_pad değil tahmin)."""
+        run = {"OD_mm": 609.6, "WT_mm": 14.3}
+        branch = {"OD_mm": 273.0, "WT_mm": 9.3}
+        analysis_res = {
+            "branch_angle_deg": 90.0,
+            "split_tee": {
+                "sleeve_pressure_containing": True,
+                "T_sleeve_mm": 14.0,
+                "sleeve_length_mm": 520.0,
+            },
+        }
+        pad_on = {"has_pad": True, "T_pad": 14.0, "D_pad": 300.0}  # D_pad bilinçli farklı
+        fig = create_3d_cad_model_figure(
+            run, branch, analysis_res, pad_on, fitting_type="SPLIT TEE"
+        )
+        sleeve_traces = [t for t in fig.data if "Full Encirclement" in (t.name or "")]
+        assert sleeve_traces
+        hover = sleeve_traces[0].hovertext
+        assert "520" in hover  # gerçek sleeve_length_mm
+        assert "300" not in hover  # pad_props.D_pad değil

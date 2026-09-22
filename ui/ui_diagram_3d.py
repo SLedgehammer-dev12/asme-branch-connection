@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer V3.6.0
+ASME B31.8 Pipeline Designer
 İnteraktif 3D CAD Boru ve Branşman Modeli (3D CAD Surface / Mesh Diagram)
 Plotly 3D ile 360° dönebilen ana boru, branşman, fitting (olet / tee / sleeve /
 saddle / pad), kaynak dikişleri, vent deliği ve ebat etiketleri modeli.
@@ -10,7 +10,7 @@ Seçilen fitting tipine göre bağlantı görseli özelleştirilir:
   - OLET     : Jenerik dövme olet gövdesi
   - WELDING TEE : Fabrika tee (geniş yaka + branşman namlusu + köşe kaynak)
   - SPLIT TEE / FULL ENCIRCLEMENT SLEEVE : Ana hattı saran tam manşon
-      (Type B = kalın basınç taşıyan manşon, Type A = ince takviye manşonu)
+      (basınçlı = kalın basınç taşıyan manşon; takviye = ince takviye manşonu)
   - SADDLE : Ana hattı kısmen saran yarım eyer manşonu
   - REINFORCING PAD : Eyer takviye pedi + vent deliği
   - FABRICATED BRANCH : Takviyesiz çıplak branşman
@@ -45,9 +45,11 @@ def create_3d_cad_model_figure(
     analysis_res: Dict[str, Any],
     pad_props: Optional[Dict[str, Any]] = None,
     branch_angle_deg: float = 90.0,
-    fitting_type: Optional[str] = None
+    fitting_type: Optional[str] = None,
+    op_type: str = "New Construction",
 ) -> go.Figure:
     fig = go.Figure()
+    op_type_hint = op_type
 
     # Geometrik parametreler (mm)
     run_od = float(run_data.get("OD_mm", 609.6))
@@ -76,18 +78,25 @@ def create_3d_cad_model_figure(
     is_pad = ("REINFORCING PAD" in ftype or "PAD" in ftype) and not is_saddle and not is_sleeve
     is_fabricated = "FABRICATED" in ftype
 
-    # Split Tee tipi bilgisi (analysis_res içindeki split_tee dict'inden)
+    # Manşon basınç sınırı bilgisi (analysis_res içindeki split_tee dict'inden)
     st_info = analysis_res.get("split_tee") or {}
-    split_type = st_info.get("split_type", "Type B")
-    is_type_b = "B" in str(split_type).upper()
+    pressure_containing = bool(st_info.get("sleeve_pressure_containing", True))
+    split_label = "Basınçlı" if pressure_containing else "Takviye"
 
     beta_deg = float(analysis_res.get("branch_angle_deg", branch_angle_deg or 90.0))
     beta_rad = math.radians(beta_deg)
     cos_b = math.cos(beta_rad)
     sin_b = math.sin(beta_rad)
 
+    d_hole = float(analysis_res.get("d_hole", branch_od))
+    min_welds = analysis_res.get("min_welds") or {}
+
     # Boyutlar
-    l_header = max(run_od * 1.8, d_pad * 2.2, 500.0)
+    # Manşon gerçek boyu: D_pad (sleeve tipinde pad_props.D_pad = sleeve_length_mm)
+    l_sleeve_real = float(
+        st_info.get("sleeve_length_mm") or (pad_props or {}).get("D_pad") or 0.0
+    )
+    l_header = max(run_od * 1.8, d_pad * 2.2, (l_sleeve_real + run_od * 0.6) if l_sleeve_real else 0.0, 500.0)
     h_branch = max(branch_od * 1.5, 250.0)
 
     # Fitting gövde boyları
@@ -95,7 +104,7 @@ def create_3d_cad_model_figure(
     h_sock = max(r_b * 0.55, 32.0)         # Sockolet (kısa)
     h_neck = max(r_b * 0.9, 55.0)          # Welding tee boynu
 
-    # Manşon / eyer kalınlığı (split tee tipine göre)
+    # Manşon / eyer kalınlığı — gerçek T_sleeve_mm tercih edilir (tahmin yok)
     if is_sleeve:
         if st_info.get("T_sleeve_mm"):
             t_sleeve = float(st_info["T_sleeve_mm"])
@@ -103,15 +112,13 @@ def create_3d_cad_model_figure(
             t_sleeve = t_pad
         else:
             t_sleeve = max(6.0, run_wt * 0.75)
-        # Type B (basınç taşıyan) Type A'dan daha kalın gösterilir
-        if not is_type_b:
-            t_sleeve = max(4.0, t_sleeve * 0.6)
     elif is_saddle:
         t_sleeve = t_pad if has_pad and t_pad > 0 else max(5.0, run_wt * 0.6)
     else:
         t_sleeve = 0.0
 
-    l_sleeve = max(d_pad, branch_od * 2.0, 300.0)
+    # Manşon boyu: gerçek sleeve_length, yoksa 2·d (Appendix F)
+    l_sleeve = l_sleeve_real if l_sleeve_real > 0 else max(2.0 * d_hole, branch_od * 2.0, 300.0)
 
     # Branşman borusunun başlangıç yüksekliği (fitting tipine göre)
     if is_olet:
@@ -216,13 +223,21 @@ def create_3d_cad_model_figure(
         XS, THS = np.meshgrid(xs, ths)
         YS = r_slv * np.cos(THS)
         ZS = r_slv * np.sin(THS)
-        color = [[0, "#164E63"], [0.5, "#0891B2"], [1, "#67E8F9"]] if is_type_b else \
+        color = [[0, "#164E63"], [0.5, "#0891B2"], [1, "#67E8F9"]] if pressure_containing else \
                 [[0, "#164E63"], [0.5, "#06B6D4"], [1, "#67E8F9"]]
+        hover_extra = (
+            " | 831.4.2(j) basınç taşıyan uç çevresel kaynaklı"
+            if (pressure_containing and op_type_hint == "Hot Tap")
+            else ""
+        )
         fig.add_trace(go.Surface(
             x=XS, y=YS, z=ZS, colorscale=color, showscale=False, opacity=0.55,
             name="Full Encirclement Sleeve (Manşon)",
             hoverinfo="text",
-            hovertext=f"{split_type} manşon: T_sleeve ≈ {t_sleeve:.1f} mm, Boy ≈ {l_sleeve:.0f} mm",
+            hovertext=(
+                f"{split_label} manşon: T_sleeve = {t_sleeve:.1f} mm, Boy = {l_sleeve:.0f} mm"
+                f" (Appendix F 2d = {2.0 * d_hole:.0f} mm){hover_extra}"
+            ),
             lighting=dict(ambient=0.5, diffuse=0.7, specular=0.6, roughness=0.3)
         ))
         # Boyuna kaynak hatları (ön + arka)
@@ -232,7 +247,7 @@ def create_3d_cad_model_figure(
                 np.linspace(-l_sleeve / 2.0, l_sleeve / 2.0, 20),
                 np.full(20, sy), np.full(20, 0.0),
                 "#F59E0B", 4, sname,
-                "Manşon boyuna kök kaynağı (backing strip / ASME PCC-2)"
+                "Manşon boyuna kök kaynağı (backing strip / ASME B31.8-2025)"
             ))
         # Uç çevresel kaynak halkaları
         for ex in (-l_sleeve / 2.0, l_sleeve / 2.0):
@@ -355,8 +370,13 @@ def create_3d_cad_model_figure(
     # -------------------------------------------------------------
     # 4. 3D KAYNAK DİKİŞİ HALKALARI (FILLET WELD BEADS)
     # -------------------------------------------------------------
+    # Kaynak halkası yarıçapı fitting'e göre: olet/tee = r_b + W1; pad/sleeve = ped kenarı
     weld_phi = np.linspace(0, 2 * np.pi, 50)
-    w_ring_r = r_b + 4.0
+    w_leg = float(min_welds.get("W1_min", 4.0) or 4.0)
+    if is_olet or is_welding_tee or (not has_pad and not is_sleeve and not is_saddle):
+        w_ring_r = r_b + w_leg
+    else:
+        w_ring_r = min(r_b + w_leg, r_pad)
     weld_top_z = r_h + (t_pad if (is_pad or is_saddle) and has_pad else 0.0)
     w_x = w_ring_r * np.cos(weld_phi)
     w_y = w_ring_r * np.sin(weld_phi)
@@ -364,7 +384,22 @@ def create_3d_cad_model_figure(
     fig.add_trace(_ring_trace(
         weld_phi, w_x, w_y, w_z, "#A855F7", 6,
         "Kaynak Dikişi (Fillet Weld)",
-        "ASME B31.8 Fig. I-4 Branşman Köşe Kaynak Dikişi (Fillet Weld)"
+        f"ASME B31.8-2025 Fig. I-1.1-1 köşe kaynağı (min W1 = {w_leg:.1f} mm, 3B/8 ≥ 6.35)"
+    ))
+
+    # d_hole açık ağız dash halkası (branşman geçişinde)
+    d_hole_ring_phi = np.linspace(0, 2 * np.pi, 50)
+    r_hole_3d = d_hole / 2.0
+    fig.add_trace(go.Scatter3d(
+        x=r_hole_3d * np.cos(d_hole_ring_phi),
+        y=r_hole_3d * np.sin(d_hole_ring_phi),
+        z=np.full_like(d_hole_ring_phi, r_h + 0.5),
+        mode="lines",
+        line=dict(color="#0284C7", width=4, dash="dash"),
+        name=f"d_hole ({analysis_res.get('d_hole_basis') or 'ID'})",
+        hoverinfo="text",
+        hovertext=f"Açıklık delik çapı d = {d_hole:.1f} mm ({analysis_res.get('d_hole_basis') or 'ID'}) — 831.4.1(c)",
+        showlegend=True,
     ))
 
     # Pad/Saddle dış kaynağı
@@ -417,7 +452,7 @@ def create_3d_cad_model_figure(
         title=dict(
             text=f"<b>3D CAD İnteraktif Boru & Branşman Modeli</b> — {run_od:.0f} mm × {branch_od:.0f} mm"
                  f" (Açı: {beta_deg:.1f}°) | Fitting: {fitting_type or 'Fabricated Branch'}"
-                 + (f" | {split_type}" if is_sleeve else ""),
+                 + (f" | {split_label}" if is_sleeve else ""),
             font=dict(size=15, color="#0F172A", family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif")
         ),
         scene=dict(

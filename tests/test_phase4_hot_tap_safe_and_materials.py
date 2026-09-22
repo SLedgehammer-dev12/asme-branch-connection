@@ -6,15 +6,19 @@ Kapsam:
 - get_fitting_material_choices(fitting_type) split tee genişletmesi
 - calculate_hot_tap_safe_pressure (API RP 2201 / Battelle)
 - evaluate_hot_tap_flow_and_cooling (heat sink)
-- evaluate_split_tee_design (Type A/B, T_sleeve >= t_req_h)
+- evaluate_complete_encirclement_reinforcement (Appendix F alan yöntemi)
+- evaluate_pressurized_hot_tap_sleeve (831.4.2(j) uç kaynak/uç yüz)
 - analyze() entegrasyonu (hot_tap P_safe + split_tee)
 """
+
+import pytest
 
 import fitting_database as db
 from engine_math import (
     calculate_hot_tap_safe_pressure,
     evaluate_hot_tap_flow_and_cooling,
-    evaluate_split_tee_design,
+    evaluate_complete_encirclement_reinforcement,
+    evaluate_pressurized_hot_tap_sleeve,
 )
 from engine import PipelineExpertEngine
 
@@ -113,26 +117,46 @@ class TestHotTapFlowAndCooling:
 
 
 class TestSplitTeeDesign:
-    def test_type_b_pressure_containing_thickness_ok(self):
-        res = evaluate_split_tee_design("Type B", sleeve_wt_mm=12.0, t_req_h_mm=10.0)
-        assert res["pressure_containing"] is True
-        assert res["thickness_pass"] is True
-        assert res["adequate"] is True
+    def test_complete_encirclement_area_sufficient(self):
+        res = evaluate_complete_encirclement_reinforcement(
+            d_mm=202.7, t_h_mm=7.1, wt_h_net_mm=8.0, wt_b_net_mm=10.0, t_b_mm=3.3,
+            header_nominal_wt_mm=7.9, branch_nominal_wt_mm=10.0,
+            sleeve_wt_mm=12.0, sleeve_length_mm=500.0, f_branch=1.0, f_sleeve=1.0,
+            weld_area_mm2=100.0,
+        )
+        assert res["A_R"] > 0.0
+        assert "A4" in res and "A_avail" in res
+        assert res["A_avail"] >= 0.0
+        assert isinstance(res["pass"], bool)
+        assert "Appendix F" in res["clause"]
 
-    def test_type_b_thickness_insufficient(self):
-        res = evaluate_split_tee_design("Type B", sleeve_wt_mm=8.0, t_req_h_mm=10.0)
-        assert res["thickness_pass"] is False
-        assert res["adequate"] is False
-        assert res["status"].startswith("YETERSİZ")
+    def test_complete_encirclement_insufficient(self):
+        res = evaluate_complete_encirclement_reinforcement(
+            d_mm=300.0, t_h_mm=10.0, wt_h_net_mm=10.0, wt_b_net_mm=10.0, t_b_mm=10.0,
+            header_nominal_wt_mm=10.0, branch_nominal_wt_mm=10.0,
+            sleeve_wt_mm=2.0, sleeve_length_mm=100.0, weld_area_mm2=0.0,
+        )
+        assert res["pass"] is False
+        assert res["Missing"] > 0.0
 
-    def test_type_a_reinforcing(self):
-        res = evaluate_split_tee_design("Type A", sleeve_wt_mm=12.0, t_req_h_mm=10.0)
-        assert res["pressure_containing"] is False
-        assert res["thickness_pass"] is True
+    def test_pressurized_hot_tap_sleeve_thickness_range(self):
+        res = evaluate_pressurized_hot_tap_sleeve(
+            P_mpa=7.0, sleeve_od_mm=640.0, pipe_wall_mm=14.3,
+            sleeve_smys_mpa=360.0, F=0.72, E=0.8, T=1.0, gap_mm=0.0,
+        )
+        assert res["t_hoop_mm"] > 0.0
+        assert res["end_fillet_leg_min_mm"] == pytest.approx(14.3, abs=0.01)
+        assert res["end_fillet_leg_max_mm"] == pytest.approx(1.4 * 14.3, abs=0.01)
+        assert res["effective_throat_min_mm"] == pytest.approx(0.7 * 14.3, abs=0.01)
+        assert res["pass"] is True
 
-    def test_min_sleeve_length(self):
-        res = evaluate_split_tee_design("Type B", sleeve_wt_mm=12.0, t_req_h_mm=10.0, branch_od_mm=273.0, d_opening_mm=273.0)
-        assert res["min_sleeve_length_mm"] >= 273.0
+    def test_pressurized_hot_tap_sleeve_face_exceeds(self):
+        res = evaluate_pressurized_hot_tap_sleeve(
+            P_mpa=7.0, sleeve_od_mm=640.0, pipe_wall_mm=14.3,
+            sleeve_smys_mpa=360.0, end_face_mm=100.0,
+        )
+        assert res["face_ok"] is False
+        assert res["pass"] is False
 
 
 class TestAnalyzeIntegration:
@@ -163,11 +187,12 @@ class TestAnalyzeIntegration:
         eng = self._make_eng(
             op_type="New Construction",
             pad_props={"has_pad": True, "T_pad": 12.0, "D_pad": 400.0},
-            split_tee_type="Type B",
+            sleeve_pressure_containing=True,
         )
         res = eng.analyze(run, branch, selected_fitting_type="SPLIT TEE")
         st = res["split_tee"]
         assert st is not None
-        assert st["split_type"] == "Type B"
+        assert st["sleeve_pressure_containing"] is True
         assert st["T_sleeve_mm"] == 12.0
-        assert st["t_req_h_mm"] > 0.0
+        assert "A_R" in st
+        assert res["is_exempt"] is False

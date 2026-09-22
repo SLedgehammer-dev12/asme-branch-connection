@@ -1,4 +1,4 @@
-# Development dependencies for ASME B31.8 Pipeline Designer V3.1
+# Development dependencies for ASME B31.8 Pipeline Designer V3.6.1
 
 # Testing
 pytest>=7.0.0

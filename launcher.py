@@ -1,5 +1,5 @@
 # =============================================================================
-# ASME B31.8 Pipeline Designer V3.3 — Standalone Launcher
+# ASME B31.8 Pipeline Designer — Standalone Launcher
 # PyInstaller ile .exe ve macOS App olarak paketlenecek baslatici
 # =============================================================================
 import sys
@@ -10,6 +10,8 @@ import webbrowser
 import time
 import threading
 import logging
+
+from version import __version_label__
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(name)s: %(message)s')
 
@@ -41,6 +43,7 @@ def main():
     base_dir = get_base_dir()
     app_path = os.path.join(base_dir, "app.py")
     port = get_free_port()
+    logging.info(f"ASME B31.8 Pipeline Designer {__version_label__} baslatiliyor (port {port}).")
 
     # Tarayiciyi arka planda ac
     browser_thread = threading.Thread(target=open_browser, args=(port, 3.0), daemon=True)

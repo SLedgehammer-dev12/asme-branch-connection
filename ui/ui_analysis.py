@@ -1,5 +1,5 @@
 """
-UI Analiz Bölümleri - ASME B31.8 Pipeline Designer V3.6.0
+UI Analiz Bölümleri - ASME B31.8 Pipeline Designer
 """
 
 import streamlit as st
@@ -9,6 +9,8 @@ from engine import (
     _evaluate_selected_fitting_against_recommendations,
     evaluate_sour_service_compliance,
     compare_pipe_fitting_materials,
+    propose_fitting_dimensions,
+    convert_pressure_to_mpa,
 )
 from ui.ui_diagram import create_cross_section_figure
 from ui.ui_diagram_3d import create_3d_cad_model_figure
@@ -20,10 +22,21 @@ import fitting_database as db
 
 FITTING_MATERIALS_DB = db.FITTING_MATERIALS_BY_STANDARD
 
+# fitting -> form görünürlüğü (Aşama 2 dinamik form)
+FITTING_FORM_SPEC = {
+    "REINFORCING PAD": {"weld": "dual", "pad": True, "sleeve_radio": False},
+    "WELDOLET / SOCKOLET / OLET": {"weld": "single", "pad": False, "sleeve_radio": False},
+    "WELDING TEE (Factory)": {"weld": "none", "pad": False, "sleeve_radio": False},
+    "SPLIT TEE": {"weld": "dual", "pad": True, "sleeve_radio": True},
+    "FULL ENCIRCLEMENT SLEEVE": {"weld": "dual", "pad": True, "sleeve_radio": True},
+    "SADDLE (Half-Sleeve)": {"weld": "dual", "pad": True, "sleeve_radio": False},
+    "FABRICATED BRANCH (Takviyesiz)": {"weld": "single", "pad": False, "sleeve_radio": False},
+}
+
 
 def render_analysis_results(analysis_results, dm_res, run_data, branch_data, selected_fitting, eng_kwargs):
     """Analiz sonuçlarını (alan telafisi, 2D kesit, kaynak denetimi, hidrotest, metalurji, rapor) gösterir."""
-    if not analysis_results or analysis_results.get("status") != "OK":
+    if not analysis_results or analysis_results.get("status") not in ("OK", "WARNING"):
         return
 
     st.markdown("---")
@@ -52,6 +65,14 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         f"Birim Sistemi: **{us.describe()['system'].capitalize()}** "
         f"({us.describe()['length_unit']} / {us.describe()['pressure_unit']} / {us.describe()['temp_unit']})"
     )
+
+    # Basınç dayanımı yetersizliği (uyarı + devam eden hesap)
+    if not ar.get("Pressure_Adequate", True):
+        st.error(
+            "❌ **Basınç Dayanımı Yetersiz (WARNING):** Ana hat ve/veya branşman net et kalınlığı, ASME B31.8 "
+            "Barlow gerekli kalınlığının altındadır. Hesaplama bilgilendirme amaçlı sürdürüldü; bu tasarım basınç "
+            "dayanımı açısından UYGUN DEĞİLDİR ve onay amaçlı kullanılamaz."
+        )
 
     # Durum kartı
     if is_exempt:
@@ -82,7 +103,8 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     col2.metric("Mevcut Alan (A_avail)", f"{ar['A_avail']:.0f} mm²",
                 delta=f"{'✅ Yeterli' if not need_reinf else '❌ Eksik ' + str(int(missing)) + ' mm²'}")
     col3.metric("Delik Çapı (d_hole)", f"{ar['d_hole']:.1f} mm")
-    col4.metric("Takviye Limiti (L)", f"{ar['L_eff']:.1f} mm")
+    col4.metric("Etkin Takviye Zonu (L_eff)", f"{ar['L_eff']:.1f} mm",
+                help="L_eff = min(L₁, L₂). A2 (branşman artı alanı) bu zon içinde sayılır.")
 
     # Alan bileşenleri
     st.markdown("#### Alan Bileşenleri")
@@ -90,11 +112,35 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     c1.metric("A1 (Ana Boru)", f"{ar['A1']:.0f} mm²",
               help="Ana hat fazlalık alanı. Hot tap operasyonunda güvenlik için 0 alınır.")
     c2.metric("A2 (Branşman)", f"{ar['A2']:.0f} mm²",
-              help="Branşman borusu fazlalık alanı")
+              help="Branşman borusu fazlalık alanı (L_eff = min(L₁,L₂) zonu içinde)")
     c3.metric("A3 (Kaynak)", f"{ar['A3']:.0f} mm²",
               help="Kaynak dikişi katkısı")
     c4.metric("A4 (Pad/Sleeve)", f"{ar['A4']:.0f} mm²",
               help="Takviye pedi veya manşon katkısı")
+
+    # Alan telafisi hesap detayları (motorun ürettiği sayısal ikame — area_details)
+    ad = ar.get("area_details") or {}
+    if ad.get("zone") or ad.get("components"):
+        with st.expander("🧮 Alan Telafisi Hesap Detayları (sayısal ikame)", expanded=False):
+            if ad.get("is_exempt"):
+                st.info(
+                    "Standart ürün muafiyeti: alan telafisi üretici kalifikasyonu kapsamındadır "
+                    "(ASME B31.8-2025 Para 831.4.2). Aşağıdaki değerler yalnızca bilgilendirme amaçlıdır."
+                )
+            st.markdown("**Takviye Bölgesi Limitleri**")
+            for z in ad.get("zone", []):
+                st.markdown(f"- {z.get('formula', '')}")
+            st.markdown("**Alan Bileşenleri**")
+            for c in ad.get("components", []):
+                note = f" — _{c['note']}_" if c.get("note") else ""
+                st.markdown(
+                    f"- **{c.get('code', '')}** ({c.get('label', '')}) = "
+                    f"{c.get('value', '-')} mm²: `{c.get('formula', '')}`{note}"
+                )
+            st.caption(
+                f"A_req = {ad.get('A_req', '-')} mm² | A_avail = {ad.get('A_avail', '-')} mm²"
+            )
+            st.caption(ad.get("basis", ""))
 
     # 2D & 3D Dinamik CAD Çizim Sekmeleri
     tab_diag, tab_3d, tab_calc, tab_safety, tab_metal = st.tabs([
@@ -110,7 +156,13 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     with tab_diag:
         st.markdown("##### ASME B31.8 Alan Telafisi 2D Kesit Görselleştirmesi")
         try:
-            fig_cross = create_cross_section_figure(run_data, branch_data, ar, pad_p, weld_l)
+            fig_cross = create_cross_section_figure(
+                run_data, branch_data, ar, pad_p, weld_l,
+                branch_angle_deg=branch_angle_deg,
+                fitting_type=selected_fitting,
+                d_hole_type=eng_kwargs.get("d_hole_type", "ID"),
+                op_type=op_type,
+            )
             st.plotly_chart(fig_cross, use_container_width=True)
         except Exception as e:
             st.warning(f"2D Kesit şeması çizilirken hata oluştu: {e}")
@@ -118,7 +170,12 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
     with tab_3d:
         st.markdown("##### 3D CAD İnteraktif Boru & Branşman Modeli")
         try:
-            fig_3d = create_3d_cad_model_figure(run_data, branch_data, ar, pad_p, branch_angle_deg=branch_angle_deg, fitting_type=selected_fitting)
+            fig_3d = create_3d_cad_model_figure(
+                run_data, branch_data, ar, pad_p,
+                branch_angle_deg=branch_angle_deg,
+                fitting_type=selected_fitting,
+                op_type=op_type,
+            )
             st.plotly_chart(fig_3d, use_container_width=True)
         except Exception as e:
             st.warning(f"3D CAD modeli çizilirken hata oluştu: {e}")
@@ -127,9 +184,18 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         col_a, col_b = st.columns(2)
         with col_a:
             st.markdown("**Takviye Bölgesi Limitleri:**")
-            st.markdown(f"- L₁ = 2.5 × T_h = {ar['L1']:.2f} mm")
-            st.markdown(f"- L₂ = 2.5 × T_b + T_s = {ar['L2']:.2f} mm")
-            st.markdown(f"- **L_eff = min(L₁, L₂) = {ar['L_eff']:.2f} mm**")
+            _zone = ad.get("zone") or []
+            if _zone:
+                for z in _zone:
+                    txt = z.get("formula", "")
+                    if z.get("code") == "Leff":
+                        st.markdown(f"- **{txt}**")
+                    else:
+                        st.markdown(f"- {txt}")
+            else:
+                st.markdown(f"- L₁ = 2.5 × wt_h_net = {ar['L1']:.2f} mm")
+                st.markdown(f"- L₂ = 2.5 × wt_b_net + T_s = {ar['L2']:.2f} mm")
+                st.markdown(f"- **L_eff = min(L₁, L₂) = {ar['L_eff']:.2f} mm**")
             st.markdown(f"- f_branch = {ar['f_branch']:.3f} | f_sleeve = {ar['f_sleeve']:.3f}")
             st.markdown(f"- Branş Açısı β = {branch_angle_deg}° (Açıklık d_opening = {ar.get('d_opening', ar.get('d_hole',0)):.1f} mm)")
         with col_b:
@@ -141,22 +207,22 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             st.markdown(f"- W_p (Efektif Pad Genişliği) = {ar['W_p']:.2f} mm")
 
     with tab_safety:
-        st.markdown("##### ASME B31.8 Fig. I-4 Kaynak Boyutlandırma ve Saha Testi")
+        st.markdown("##### ASME B31.8-2025 Fig. I-1.1-1 / I-1.1-4 Kaynak Boyutlandırma ve Saha Testi")
         min_w = ar.get("min_welds", {})
         hydro = ar.get("hydrotest", {})
         
         c_w1, c_w2 = st.columns(2)
         with c_w1:
             st.info(
-                f"**Kaynak Boyutlandırma Kontrolü (ASME B31.8 Fig. I-4):**\n"
-                f"- Min. Kaynak Boğazı ($t_c$): **{min_w.get('t_c_min',0):.1f} mm**\n"
-                f"- Önerilen Min. Branşman Bacağı ($w_{{inner}}$): **{min_w.get('w_inner_min',0):.1f} mm**\n"
-                f"- Önerilen Min. Pad Bacağı ($w_{{outer}}$): **{min_w.get('w_outer_min',0):.1f} mm**"
+                f"**Kaynak Boyutlandırma Kontrolü (ASME B31.8-2025 Fig. I-1.1-1):**\n"
+                f"- Min. Kaynak Boğazı: **{min_w.get('t_c_min',0):.1f} mm** (0.707 × bacak)\n"
+                f"- Önerilen Min. Branşman Bacağı ($W_1$): **{min_w.get('w_inner_min',0):.1f} mm** (3B/8, min 6.35 mm)\n"
+                f"- Önerilen Min. Pad/Manşon Bacağı ($w_{{outer}}$): **{min_w.get('w_outer_min',0):.1f} mm**"
             )
         with c_w2:
             st.info(
                 f"**Hidrostatik Saha Testi Analizi (Para 841.3.2):**\n"
-                f"- Test Basıncı: **{hydro.get('P_test_bar',0):.1f} bar** ({hydro.get('P_test_MPa',0):.2f} MPa, 1.25x MAOP)\n"
+                f"- Test Basıncı: **{hydro.get('P_test_bar',0):.1f} bar** ({hydro.get('P_test_MPa',0):.2f} MPa, {hydro.get('test_factor',1.25)}x MAOP)\n"
                 f"- Test Gerilmesi: **{hydro.get('test_stress_MPa',0):.1f} MPa** (%{hydro.get('stress_smys_ratio',0)*100:.1f} SMYS)\n"
                 f"- Durum: **{hydro.get('status','OK')}**"
             )
@@ -192,26 +258,48 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             if ht.get("cutter_max_od_mm") is not None:
                 st.caption(f"🛠️ Cutter: maks. cutter OD ≤ {ht['cutter_max_od_mm']:.1f} mm (branşman ID)")
 
-        # Split Tee / Sleeve mekanik doğrulaması
+        # Split Tee / Full Encirclement Sleeve (ASME B31.8-2025)
         st_res = ar.get("split_tee")
         if st_res:
             st.markdown("---")
-            st.markdown(f"##### 🧩 Split Tee / Sleeve Doğrulaması ({st_res.get('split_type','-')})")
-            c1, c2 = st.columns(2)
+            st.markdown("##### 🧩 Split Tee / Full Encirclement Sleeve Doğrulaması (ASME B31.8-2025)")
+            c1, c2, c3 = st.columns(3)
             with c1:
-                st.metric("T_sleeve", f"{st_res.get('T_sleeve_mm','-')} mm")
-                st.metric("t_req_h (gerekli)", f"{st_res.get('t_req_h_mm','-')} mm")
+                st.metric("A_req (gerekli)", f"{st_res.get('A_R','-')} mm²")
             with c2:
-                st.metric("Min. Manşon Boyu", f"≈ {st_res.get('min_sleeve_length_mm','-')} mm")
-            if st_res.get("thickness_pass"):
-                st.success(f"✅ {st_res.get('status','UYGUN')} — T_sleeve ≥ t_req_h sağlanıyor.")
+                st.metric("A_avail (mevcut)", f"{st_res.get('A_avail','-')} mm²",
+                          delta=f"A1={st_res.get('A1','-')}, A2={st_res.get('A2','-')}, A4={st_res.get('A4','-')}")
+            with c3:
+                st.metric("Manşon (T / boy)", f"{st_res.get('T_sleeve_mm','-')} / {st_res.get('sleeve_length_mm','-')} mm")
+            if st_res.get("pass"):
+                st.success(f"✅ Alan yöntemi UYGUN (Appendix F): A_avail ≥ A_req.")
             else:
-                st.error(f"❌ {st_res.get('status','YETERSİZ')} — manşon kalınlığı yükseltilmelidir.")
+                st.error(f"❌ YETERSİZ: Eksik alan {st_res.get('Missing','-')} mm² — manşon kalınlığı/boyu artırılmalıdır.")
+            pe = st_res.get("pressurized")
+            if pe:
+                st.markdown("**831.4.2(j) Basınçlı Hot Tap Tee Manşon Uç Tasarımı (Fig. I-1.1-4):**")
+                pc1, pc2, pc3, pc4 = st.columns(4)
+                pc1.metric("Hoop Kalınlığı (t_hoop)", f"{pe.get('t_hoop_mm','-')} mm")
+                pc2.metric("Uç Kaynak Bacağı", f"{pe.get('end_fillet_leg_min_mm','-')}–{pe.get('end_fillet_leg_max_mm','-')} mm")
+                pc3.metric("Etkin Boğaz", f"{pe.get('effective_throat_min_mm','-')}–{pe.get('effective_throat_max_mm','-')} mm")
+                pc4.metric("Uç Yüz Limiti", f"≤ {pe.get('end_face_limit_mm','-')} mm")
+                if pe.get("pass"):
+                    st.success(f"✅ {pe.get('recommendation','')}")
+                else:
+                    st.error(f"❌ {pe.get('recommendation','')}")
+            else:
+                st.caption("Basınç tutmayan takviye manşonu: alan yöntemi (Appendix F) uygulanır.")
 
     with tab_metal:
         st.markdown("##### NACE MR0175 / ISO 15156 Ekşi Gaz ve Karbon Eşdeğeri")
-        pipe_chem = {"C": 0.12, "Mn": 1.20, "Si": 0.30, "S": 0.003, "P": 0.015}
-        pipe_mech = {"Hardness": "197 HB max"}
+        run_pipe_key = db.make_run_pipe_key(run_data.get("Standard", ""), run_data.get("Grade", ""))
+        run_props = db.PIPE_MATERIALS_PROPS.get(run_pipe_key, {})
+        pipe_chem = run_props.get("Chem") or {"C": 0.12, "Mn": 1.20, "Si": 0.30, "S": 0.003, "P": 0.015}
+        pipe_mech = run_props.get("Mech") or {"Hardness": "197 HB max"}
+        st.caption(
+            f"Kimyasal analiz kaynağı: {run_data.get('Standard','')} {run_data.get('Grade','')} "
+            f"({run_pipe_key if run_props else 'katalogda yok - varsayılan kimya'})"
+        )
 
         h2s_col, h2s_note = st.columns([1, 2])
         with h2s_col:
@@ -312,7 +400,7 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
             hot_tap_flow_ms=eng_kwargs.get("hot_tap_flow_ms"),
             hot_tap_fluid=eng_kwargs.get("hot_tap_fluid", "gas"),
             hot_tap_d_pen_mm=eng_kwargs.get("hot_tap_d_pen_mm", 2.0),
-            split_tee_type=eng_kwargs.get("split_tee_type", "Type B"),
+            sleeve_pressure_containing=eng_kwargs.get("sleeve_pressure_containing", True),
         )
         html_report = eng.generate_html_report(
             run_data, branch_data, ar,
@@ -322,9 +410,9 @@ def render_analysis_results(analysis_results, dm_res, run_data, branch_data, sel
         )
         st.download_button(
             label="📥 Profesyonel Hesap Dosyasını (HTML / PDF Yazdırılabilir) İndir",
-            data=html_report,
+            data=html_report.encode("utf-8"),
             file_name=f"{doc_no}_ASME_B31.8_{run_data.get('NPS', '')}x{branch_data.get('NPS', '')}.html",
-            mime="text/html",
+            mime="text/html; charset=utf-8",
             use_container_width=True,
             type="primary"
         )
@@ -408,71 +496,140 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
     )
     st.session_state.selected_fitting = selected_fitting
 
-    d_hole_type = c2.radio(
-        "A_req delik çapı (d_hole) kabulü",
-        ["OD", "ID"],
-        index=0,
-        format_func=lambda x: "Dış çap (OD) - Set-In (Muhafazakar)" if x == "OD" else "İç çap (ID) - Set-On",
-        help="Alan hesabında (A_req) kullanılacak d_hole değeri.",
-    )
+    # d_hole tipi artık Aşama 1'de seçilir (session_state / extra_kwargs)
+    d_hole_type = st.session_state.get("d_hole_type") or extra_kwargs.get("d_hole_type") or "ID"
 
     recommended_types = [rec.get("Type", "-") for rec in dm_res.get("Recommendations", [])]
     if recommended_types:
         st.caption(f"Karar matrisi önerileri: {', '.join(recommended_types)}")
 
+    spec = FITTING_FORM_SPEC.get(selected_fitting, {"weld": "single", "pad": False, "sleeve_radio": False})
+
+    # Motor önerisi (Aşama 2 dinamik form varsayılanları — parite: engine.propose_fitting_dimensions)
+    sleeve_pressure_pre = st.session_state.get(
+        "sleeve_pressure_containing", extra_kwargs.get("sleeve_pressure_containing", True)
+    )
+    try:
+        proposal = propose_fitting_dimensions(
+            run=run_data,
+            branch=branch_data,
+            dm_res=dm_res,
+            d_hole_type=d_hole_type,
+            selected_fitting=selected_fitting,
+            weld_legs={"inner": 0.0, "outer": 0.0},
+            pad_props={"has_pad": spec["pad"]},
+            op_type=op_type,
+            P_mpa=convert_pressure_to_mpa(P_val, P_unit),
+            F=F,
+            E=E,
+            T=T_factor,
+            fitting_smys=240.0,
+            sleeve_pressure_containing=sleeve_pressure_pre,
+            branch_angle_deg=extra_kwargs.get("branch_angle_deg", 90.0),
+        )
+    except Exception:
+        proposal = {}
+
+    if proposal:
+        st.caption(
+            f"Otomatik hesaplanan: d_hole = {proposal.get('d_hole_mm', 0):.1f} mm "
+            f"({proposal.get('d_hole_basis', '?')}) | "
+            f"A_req = {proposal.get('A_req_mm2', 0):.0f} mm² | "
+            f"d_opening = {proposal.get('d_opening_mm', 0):.1f} mm"
+        )
+
     weld_legs = {"inner": 0.0, "outer": 0.0}
     pad_props = {"has_pad": False}
+    weld_proposal = (proposal or {}).get("weld", {})
 
-    if selected_fitting in [
-        "REINFORCING PAD",
-        "FABRICATED BRANCH (Takviyesiz)",
-        "WELDOLET / SOCKOLET / OLET",
-        "SPLIT TEE",
-        "FULL ENCIRCLEMENT SLEEVE",
-    ]:
+    if spec["weld"] != "none":
         st.markdown("##### Kaynak ölçüleri")
-        if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE", "SADDLE (Half-Sleeve)"]:
+        if spec["weld"] == "dual":
             cw1, cw2 = st.columns(2)
             w_inner = cw1.number_input(
                 "İç kaynak bacak boyu (branşman - pad/header) [mm]",
-                value=6.0,
+                value=float(weld_proposal.get("w_inner_min", 6.0) or 6.0),
+                min_value=0.0,
                 step=0.5,
+                help=f"Appendix I Fig. I-1.1-1 min = {weld_proposal.get('W1_min', 0):.1f} mm",
             )
             w_outer = cw2.number_input(
                 "Dış kaynak bacak boyu (pad - ana hat) [mm]",
-                value=6.0,
+                value=float(weld_proposal.get("w_outer_min", 6.0) or 6.0),
+                min_value=0.0,
                 step=0.5,
+                help=f"Appendix I Fig. I-1.1-2 min = {weld_proposal.get('w_outer_min', 0):.1f} mm",
             )
             weld_legs["inner"] = w_inner
             weld_legs["outer"] = w_outer
         else:
-            w_inner = st.number_input("Branşman kaynak bacak boyu [mm]", value=6.0, step=0.5)
+            w_inner = st.number_input(
+                "Branşman kaynak bacak boyu [mm]",
+                value=float(weld_proposal.get("w_inner_min", 6.0) or 6.0),
+                min_value=0.0,
+                step=0.5,
+                help=f"Appendix I Fig. I-1.1-1 min = {weld_proposal.get('W1_min', 0):.1f} mm",
+            )
             weld_legs["inner"] = w_inner
             weld_legs["outer"] = 0.0
 
-    if selected_fitting in ["REINFORCING PAD", "FULL ENCIRCLEMENT SLEEVE", "SPLIT TEE", "SADDLE (Half-Sleeve)"]:
+        if weld_proposal.get("hot_tap_leg_min"):
+            st.caption(
+                f"Basınçlı hot tap uç fillet (Fig. I-1.1-4): "
+                f"{weld_proposal['hot_tap_leg_min']:.1f} – {weld_proposal['hot_tap_leg_max']:.1f} mm"
+            )
+
+    if spec["pad"]:
         pad_props["has_pad"] = True
         st.markdown("##### Takviye pedi / manşon boyutları")
+        pad_p = (proposal or {}).get("pad", {})
+        slv_p = (proposal or {}).get("sleeve", {})
+        if slv_p:
+            st.caption(
+                f"Otomatik hesaplanan manşon: L_min = {slv_p.get('L_sleeve_min_mm', 0):.0f} mm (2·d), "
+                f"T_önerilen = {slv_p.get('T_recommended_mm', 0):.1f} mm"
+                + (f", t_hoop = {slv_p['t_hoop_min_mm']:.1f} mm" if slv_p.get("t_hoop_min_mm") else "")
+            )
+        elif pad_p:
+            st.caption(
+                f"Otomatik hesaplanan ped: T_min = {pad_p.get('T_pad_min', 0):.1f} mm, "
+                f"D_pad_min = {pad_p.get('D_pad_min', 0):.1f} mm (W_p = {pad_p.get('W_p_min', 0):.1f} mm)"
+            )
         cp1, cp2 = st.columns(2)
         with cp1:
-            pad_t = cp1.number_input("Pad/Sleeve et kalınlığı (mm)", value=10.0, step=1.0)
+            pad_t = cp1.number_input(
+                "Pad/Sleeve et kalınlığı (mm)",
+                value=float(slv_p.get("T_recommended_mm") or pad_p.get("T_pad_min") or 10.0),
+                min_value=0.0,
+                step=1.0,
+            )
         with cp2:
-            pad_d = cp2.number_input("Pad dış çapı / genişliği (mm)", value=350.0, step=10.0)
+            pad_d = cp2.number_input(
+                "Pad dış çapı / manşon boyu (mm)" if slv_p else "Pad dış çapı / genişliği (mm)",
+                value=float(slv_p.get("L_sleeve_min_mm") or pad_p.get("D_pad_min") or 350.0),
+                min_value=0.0,
+                step=10.0,
+            )
 
         pad_props["T_pad"] = pad_t
         pad_props["D_pad"] = pad_d
 
-    # Split Tee tipi (Type A/B) - yalnızca split tee / sleeve için
-    split_tee_type = extra_kwargs.get("split_tee_type", "Type B")
-    if selected_fitting in ["SPLIT TEE", "FULL ENCIRCLEMENT SLEEVE"]:
-        split_tee_type = st.radio(
-            "Split Tee Tipi",
-            ["Type B", "Type A"],
-            index=0 if split_tee_type == "Type B" else 1,
-            format_func=lambda x: "Type B (basınç taşıyan manşon)" if x == "Type B" else "Type A (takviye manşonu)",
-            help="Type B: manşon basıncı taşır; T_sleeve ≥ t_req_h zorunlu. Type A: takviye elemanı.",
-        )
-        st.session_state["split_tee_type"] = split_tee_type
+    # Manşon basınç sınırı (ASME B31.8-2025) - split tee / sleeve + sidebar Hot Tap senkron
+    sleeve_pressure_containing = sleeve_pressure_pre
+    if spec["sleeve_radio"]:
+        sleeve_pressure_containing = st.radio(
+            "Manşon basınç sınırı (ASME B31.8-2025)",
+            ["basınçlı", "takviye"],
+            index=0 if sleeve_pressure_pre else 1,
+            key="sleeve_pressure_form_radio",
+            format_func=lambda x: (
+                "Basınçlı hot tap tee manşonu (uçları çevresel kaynaklı) — 831.4.2(j)"
+                if x == "basınçlı"
+                else "Basınç tutmayan takviye manşonu (complete encirclement) — 831.4.2(c)/(f)"
+            ),
+            help="Basınçlı: manşon basıncı taşır (831.4.2(j)). Takviye: alan yöntemi (Appendix F).",
+        ) == "basınçlı"
+        st.session_state["sleeve_pressure_containing"] = sleeve_pressure_containing
 
     st.markdown("#### Fitting / takviye malzemesi")
     f_std_c, f_grd_c, f_smys_c = st.columns(3)
@@ -545,7 +702,8 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
         "hot_tap_flow_ms": extra_kwargs.get("hot_tap_flow_ms"),
         "hot_tap_fluid": extra_kwargs.get("hot_tap_fluid", "gas"),
         "hot_tap_d_pen_mm": extra_kwargs.get("hot_tap_d_pen_mm", 2.0),
-        "split_tee_type": st.session_state.get("split_tee_type", extra_kwargs.get("split_tee_type", "Type B")),
+        "sleeve_pressure_containing": st.session_state.get("sleeve_pressure_containing", extra_kwargs.get("sleeve_pressure_containing", True)),
+        "d_hole_type": d_hole_type,
     }
 
     if st.button("AŞAMA 2: Alan hesabını tamamla", type="primary", use_container_width=True):
@@ -571,7 +729,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
             hot_tap_flow_ms=extra_kwargs.get("hot_tap_flow_ms"),
             hot_tap_fluid=extra_kwargs.get("hot_tap_fluid", "gas"),
             hot_tap_d_pen_mm=extra_kwargs.get("hot_tap_d_pen_mm", 2.0),
-            split_tee_type=st.session_state.get("split_tee_type", extra_kwargs.get("split_tee_type", "Type B")),
+            sleeve_pressure_containing=st.session_state.get("sleeve_pressure_containing", extra_kwargs.get("sleeve_pressure_containing", True)),
         )
         res = eng.analyze(run_data, branch_data, selected_fitting)
         st.session_state.analysis_results = res
@@ -581,7 +739,7 @@ def _render_fitting_form(dm_res, P_val, P_unit, F, E, T_factor, CA_mm, op_type, 
 
 def render_whatif_comparison(ar, run_data, branch_data, selected_fitting, eng_kwargs):
     """Faz 3: What-If senaryo karsilastirma bolumu."""
-    if not ar or ar.get("status") != "OK":
+    if not ar or ar.get("status") not in ("OK", "WARNING"):
         return
 
     if "whatif_scenarios" not in st.session_state:

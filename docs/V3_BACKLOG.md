@@ -1,22 +1,23 @@
-# V3 Baslangic Backlogu
+# V3 Backlog ve Durum
 
-Not: Oturumlar arasi devamlılık icin once `docs/V3_CONTINUITY.md` dosyasini okuyun.
+Not: Oturumlar arasi devamlilik icin once `docs/V3_CONTINUITY.md` dosyasini okuyun.
+Durum: V3.6.0 itibariyla asagidaki maddelerin tamami tamamlanmistir.
 
-## Yuksek Oncelik
+## Yuksek Oncelik (TAMAMLANDI)
 
-- UI kodunu modulerlestir
-- Engine ciktilarini test edilebilir hale getir
-- Recommendation mesajlarina daha acik clause trace ekle
-- Rapor HTML olusturmayi ayrik bir katmana tasimayi degerlendir
+- [x] UI kodunu modulerlestir (`ui/` altina ayrildi: inputs, recommendations, analysis, diagram, diagram_3d)
+- [x] Engine ciktilarini test edilebilir hale getir (`engine_contracts.py` + `tests/test_contracts.py`)
+- [x] Recommendation mesajlarina daha acik clause trace ekle (ClauseTrace / Assumptions)
+- [x] Rapor HTML olusturmayi ayrik katmana tasi (`report_pdf.py` + `generate_html_report`)
 
-## Orta Oncelik
+## Orta Oncelik (TAMAMLANDI)
 
-- Veri tabanini JSON veya CSV'ye tasimayi degerlendir
-- Hot tap ve exempt logic icin regression senaryolari yaz
-- Hata durumlari icin daha net kullanici yonlendirmesi ekle
+- [x] Veri tabanini JSON/CSV'ye tasi (`data/*.json`)
+- [x] Hot tap ve exempt logic icin regression senaryolari yaz (`test_phase4_*`, `test_engine_extended`)
+- [x] Hata durumlari icin daha net kullanici yonlendirmesi ekle (engine messages + Final_Action)
 
-## Dusuk Oncelik
+## Dusuk Oncelik (TAMAMLANDI)
 
-- Gorsel tasarimi yenile
-- Paketleme otomasyonunu iyilestir
-- PDF veya DOCX rapor ciktilarini degerlendir
+- [x] Gorsel tasarimi yenile (SVG fitting gorselleri + 2D/3D CAD)
+- [x] Paketleme otomasyonunu iyilestir (`build_exe.py` + `release.yml` coklu platform)
+- [x] PDF rapor cikti (`report_pdf.py`, ReportLab)

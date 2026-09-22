@@ -1,5 +1,5 @@
 """
-ASME B31.8 Pipeline Designer - Streamlit Arayüzü V3.6.0 (2D/3D CAD & Multiplatform Release)
+ASME B31.8 Pipeline Designer - Streamlit Arayüzü (2D/3D CAD & Multiplatform Release)
 """
 
 import json
@@ -7,12 +7,15 @@ import logging
 from datetime import datetime
 import streamlit as st
 
+from version import APP_TITLE, APP_NAME, __version_label__, STANDARD_LABEL
+
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.WARNING, format='[%(levelname)s] %(name)s: %(message)s')
 
 from ui.ui_inputs import render_pipe_inputs, render_sidebar_inputs
 from ui.ui_recommendations import render_step1_recommendations, render_step2_recommendations
 from ui.ui_analysis import render_fitting_analysis, render_analysis_results
+from ui.ui_update import render_update_section
 from logs.logbook_manager import LogbookManager
 
 # --- STATE MANAGEMENT ---
@@ -37,13 +40,13 @@ if "logbook" not in st.session_state:
 # --- UI SETUP ---
 icon_file = "assets/app_icon.png"
 st.set_page_config(
-    page_title="ASME B31.8 Pipeline Designer V3.6.0",
+    page_title=f"{APP_NAME} {__version_label__}",
     layout="wide",
     page_icon=icon_file if __import__("os").path.exists(icon_file) else "⚡",
 )
 
-st.title("⚡ ASME B31.8 Pipeline Designer V3.6.0")
-st.markdown("**Standart:** ASME B31.8-2020 | **Metod:** Area Replacement ve Smart Fitting Selection")
+st.title(APP_TITLE)
+st.markdown(f"**Standart:** {STANDARD_LABEL} | **Metod:** Area Replacement ve Smart Fitting Selection")
 
 run_data = st.session_state.run_data
 branch_data = st.session_state.branch_data
@@ -55,7 +58,7 @@ with st.sidebar:
         design_temp, op_type, P_val, P_unit, F, E, T_factor, CA_mm,
         mill_tol_percent, thickness_basis, branch_angle_deg, is_sour_service,
         facility_type, seam_type, location_class,
-        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, split_tee_type
+        hot_tap_flow_ms, hot_tap_fluid, hot_tap_d_pen_mm, sleeve_pressure_containing
     ) = render_sidebar_inputs()
 
     st.markdown("---")
@@ -82,7 +85,8 @@ with st.sidebar:
             "hot_tap_flow_ms": hot_tap_flow_ms,
             "hot_tap_fluid": hot_tap_fluid,
             "hot_tap_d_pen_mm": hot_tap_d_pen_mm,
-            "split_tee_type": split_tee_type,
+            "sleeve_pressure_containing": sleeve_pressure_containing,
+            "d_hole_type": st.session_state.get("d_hole_type", "ID"),
             "run_data": run_data,
             "branch_data": branch_data
         }
@@ -126,7 +130,10 @@ with st.sidebar:
         hot_tap_flow_ms = data.get("hot_tap_flow_ms", hot_tap_flow_ms)
         hot_tap_fluid = data.get("hot_tap_fluid", hot_tap_fluid)
         hot_tap_d_pen_mm = data.get("hot_tap_d_pen_mm", hot_tap_d_pen_mm)
-        split_tee_type = data.get("split_tee_type", split_tee_type)
+        sleeve_pressure_containing = data.get("sleeve_pressure_containing", sleeve_pressure_containing)
+        # Widget oluşturulmadan önce session_state'e yazılır (radio key="d_hole_type")
+        if "d_hole_type" in data:
+            st.session_state["d_hole_type"] = data["d_hole_type"]
         run_data = data.get("run_data", run_data)
         branch_data = data.get("branch_data", branch_data)
         st.info("Yüklenen girdiler uygulandı.")
@@ -224,7 +231,10 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"İçe aktarma hatası: {e}")
 
-run_data, branch_data = render_pipe_inputs()
+    # Güncelleme kontrolü (açılışta sessiz kontrol, opt-out)
+    render_update_section()
+
+run_data, branch_data, d_hole_type = render_pipe_inputs()
 
 st.markdown("---")
 
@@ -266,7 +276,8 @@ def run_application():
             op_type=op_type, design_temp=design_temp, run_data=run_data, branch_data=branch_data,
             mill_tol_percent=mill_tol_percent, thickness_basis=thickness_basis,
             branch_angle_deg=branch_angle_deg, location_class=location_class,
-            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service
+            facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service,
+            d_hole_type=d_hole_type
         )
 
     # Step 2: Core Analysis & Results Display
@@ -281,7 +292,8 @@ def run_application():
             branch_angle_deg=branch_angle_deg, location_class=location_class,
             facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service,
             hot_tap_flow_ms=hot_tap_flow_ms, hot_tap_fluid=hot_tap_fluid,
-            hot_tap_d_pen_mm=hot_tap_d_pen_mm, split_tee_type=split_tee_type
+            hot_tap_d_pen_mm=hot_tap_d_pen_mm, sleeve_pressure_containing=sleeve_pressure_containing,
+            d_hole_type=d_hole_type
         )
         st.session_state.dm_results = dm_res
 
@@ -305,7 +317,8 @@ def run_application():
             branch_angle_deg=branch_angle_deg, location_class=location_class,
             facility_type=facility_type, seam_type=seam_type, is_sour_service=is_sour_service,
             hot_tap_flow_ms=hot_tap_flow_ms, hot_tap_fluid=hot_tap_fluid,
-            hot_tap_d_pen_mm=hot_tap_d_pen_mm, split_tee_type=split_tee_type
+            hot_tap_d_pen_mm=hot_tap_d_pen_mm, sleeve_pressure_containing=sleeve_pressure_containing,
+            d_hole_type=d_hole_type
         )
 
     # Step 3: Completion/Review

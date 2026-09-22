@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import copy_metadata
 
 streamlit_dir = os.path.dirname(streamlit.__file__)
 
-datas = [(streamlit_dir, 'streamlit'), ('app.py', '.'), ('engine.py', '.'), ('fitting_database.py', '.'), ('assets', 'assets'), ('logs', 'logs'), ('data', 'data'), ('ui', 'ui')]
+datas = [(streamlit_dir, 'streamlit'), ('app.py', '.'), ('engine.py', '.'), ('engine_math.py', '.'), ('engine_contracts.py', '.'), ('units.py', '.'), ('report_pdf.py', '.'), ('version.py', '.'), ('update_checker.py', '.'), ('fitting_database.py', '.'), ('assets', 'assets'), ('logs', 'logs'), ('data', 'data'), ('ui', 'ui')]
 datas += copy_metadata('streamlit')
 datas += copy_metadata('plotly')
 
@@ -16,11 +16,13 @@ a = Analysis(
     binaries=[],
     datas=datas,
     hiddenimports=[
-        'streamlit', 'engine', 'fitting_database', 'altair', 'pandas',
+        'streamlit', 'engine', 'engine_math', 'engine_contracts', 'units',
+        'report_pdf', 'version', 'update_checker', 'certifi', 'reportlab', 'reportlab.platypus',
+        'reportlab.lib.pagesizes', 'fitting_database', 'altair', 'pandas',
         'plotly', 'plotly.graph_objects', 'plotly.express',
         'logs.logbook_manager', 'ui.ui_decision_matrix',
         'ui.ui_recommendations', 'ui.ui_analysis', 'ui.ui_diagram',
-        'ui.ui_diagram_3d', 'ui.ui_inputs', 'ui.ui_utils'
+        'ui.ui_diagram_3d', 'ui.ui_inputs', 'ui.ui_utils', 'ui.ui_update'
     ],
     hookspath=[],
     hooksconfig={},

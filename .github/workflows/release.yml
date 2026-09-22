@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v3.6.0)"
+        description: "Release version tag (e.g. v3.6.1)"
         required: true
-        default: "v3.6.0"
+        default: "v3.6.1"
 
 permissions:
   contents: write
@@ -67,7 +67,7 @@ jobs:
         run: |
           $ver = '${{ github.ref_name }}'
           if (-not $ver -or -not ($ver -like 'v*')) { $ver = '${{ inputs.version }}' }
-          if (-not $ver) { $ver = 'v3.6.0' }
+          if (-not $ver) { $ver = 'v3.6.1' }
           $zipName = "ASME_Branch_Connection_${ver}_Windows_x64.zip"
           Compress-Archive -Path dist/ASME_Branch_Connection_V3.exe, README.md, assets -DestinationPath $zipName
           Get-FileHash -Path $zipName -Algorithm SHA256 | Out-File -FilePath "${zipName}.sha256"
@@ -116,7 +116,7 @@ jobs:
             VER="${{ inputs.version }}"
           fi
           if [[ -z "$VER" ]]; then
-            VER="v3.6.0"
+            VER="v3.6.1"
           fi
           ZIP_NAME="ASME_Branch_Connection_${VER}_macOS_AppleSilicon_ARM64.zip"
           
@@ -169,17 +169,24 @@ jobs:
             TAG="${{ inputs.version }}"
           fi
           if [[ -z "$TAG" ]]; then
-            TAG="v3.6.0"
+            TAG="v3.6.1"
           fi
 
           cat << 'EOF' > release_notes.md
           # 🚀 ASME B31.8 Pipeline Branch Connection Design Tool
 
-          Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2020**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
+          Uluslararası petrol ve doğalgaz boru hattı standartlarına (**ASME B31.8-2025**, **API 5L**, **API RP 2201**, **MSS SP-97**, **NACE MR0175 / ISO 15156**) tam uyumlu branşman tasarım, alan telafisi ve karar matrisi doğrulama aracı.
 
           ### 📦 İndirilebilir Paketler (Downloads):
           * **Windows 10 / 11 (x64)**: `ASME_Branch_Connection_*_Windows_x64.zip` (Portable `.exe` paketi)
           * **macOS Apple Silicon (M1 / M2 / M3 / M4 - ARM64)**: `ASME_Branch_Connection_*_macOS_AppleSilicon_ARM64.zip`
+
+          ### ✨ V3.6.1 Yenilikleri:
+          * **Güncelleme Kontrolü:** Uygulama açılışta (opt-out) GitHub Releases üzerinden yeni sürümü kontrol eder; sidebar'da "🔄 Güncelleme" bölümünde sürüm notları ve platforma uygun (Windows x64 / macOS ARM64) indirme linki sunulur. Sürüm bilgisi tek kaynaktan (`version.py`) yönetilir.
+          * **Alan Zonu Düzeltmesi:** Branşman artı alanı (A2) artık etkin takviye zonu yüksekliği **L_eff = min(L₁, L₂)** içinde hesaplanıyor (negatif alan 0'a kırpılır).
+          * **Sayısal Hesap Detayları:** A1/A2/A3/A4 ve takviye bölge limitleri, UI (`Hesap Detayları` expander), HTML rapor ve PDF'te **formül + sayısal ikame** olarak gösterilir.
+          * **PDF Türkçe Karakter Desteği:** ReportLab varsayılan fontu yerine Unicode TTF (Arial/DejaVu) kaydedilir; ş/ğ/İ/ı artık bozulmaz.
+          * **Kapsam:** 369 test.
 
           ### ✨ V3.6.0 Yenilikleri — Profesyonel Düzey Düzeltmeler (P0–P2):
 
@@ -190,7 +197,7 @@ jobs:
           #### P1 — Malzeme Parse ve Hesap Kesinliği
           * **API 5L PSL 2 Grade B → WPHY 42:** Grade B boş-digits varsayımı “52” yerine muhafazakar **“42”** olarak düzeltildi.
           * **Çok kelimeli grade parse’ı:** `parse_fitting_spec_label` artık katalog önekleriyle eşleşiyor (`WPHY 52`, `LF2 Class 1`, `WPS32205`); otomatik malzeme önerisi dropdown’a doğru yansıyor. Düşük sıcaklık için `ASTM A350 LF2 Class 1` (katalog anahtarıyla eşleşik).
-          * **A1/A2 Ayrı Zon Limitleri:** Branşman fazlalığı artık yalnızca **branşman zonu (2.5·t_b + T_s)** ile hesaplanıyor; `min(L1,L2)` karışımı kaldırıldı (lisanslı B31.8 kopyası ile doğrulayın).
+          * **A1/A2 Zon Limitleri:** Branşman fazlalığı, etkin takviye zonu yüksekliği **L_eff = min(L₁, L₂)** (L₁ = 2.5·wt_h_net, L₂ = 2.5·wt_b_net + T_s) içinde hesaplanıyor; A1 ayrıca d_opening ile sınırlıdır. Tam kuşatma (sleeve) yolunda Appendix F `L_zone = min(2.5·T_h, 2.5·T_b + t_sleeve)` kullanılır (lisanslı B31.8 kopyası ile doğrulayın).
           * **Muafiyet Tutarlılığı:** Muaf fitting’te A1/A2/A3/A4/**A_avail/W_p** artık **0**’a çekiliyor; muafiyet mesajı tipe göre ayrıştırıldı (split tee/sleeve → T_sleeve doğrulaması, olet → MSS SP-97, diğer → burst-test).
           * **Hot Tap Gerçek CE:** `0.38` sabiti yerine **gerçek boru kimyasından CE_IIW** hesaplanıyor.
           * **>232 °C Tasarım Durdurma:** `T = 0.0 + "DURDURULMALIDIR"` ve `evaluate_decision_matrix` **FAIL** (sürünme kapsam dışı).
@@ -200,12 +207,12 @@ jobs:
           * **Konum Sınıfına Göre Hidrotest:** `get_hydrotest_factor()` → Class 1: **1.10**, Class 2: **1.25**, Class 3/4: **1.40**.
           * **Alan Metodu Varsayımları:** A1/A2 zon ayrımı, f_branch, A3 fillet-only, açılı A2 için ek sinβ gerekmemesi **Assumptions**’a eklendi.
           * **Clause vs Heuristik Ayrımı:** HTML/PDF raporlara **“Uygunluk Bildirimi”** eklendi (lisanslı standart doğrulaması, repo yorumu heuristik işaretleri).
-          * **Kapsam:** 318 test, %94 kapsam, tüm modüller derlenebilir ve uygulama sorunsuz içe aktarılır.
+          * **Kapsam:** 334 test, %94 kapsam, tüm modüller derlenebilir ve uygulama sorunsuz içe aktarılır.
 
           ### ✨ V3.5 Yenilikleri ve Geliştirmeler:
           * **Hot Tap P_safe Derating (API RP 2201 / Battelle)**: Canlı hat kaynağı sırasında güvenli maksimum işletme basıncı `P_safe = 2×S×F×E×T×(t_net−d_pen)/D`; elektrot penetrasyonu (`d_pen`), efektif kalan et kalınlığı (`t_eff`), basınç düşürme (derating) oranı ve PASS/FAIL kontrolü.
           * **Hot Tap Akış (Heat Sink) Termal Analizi**: Akış hızı ve akışkan tipine göre soğuma hızı, burn-through ve HIC (HICC) risk sınıflandırması (Gaz ~1.5–15 m/s, Sıvı ~0.4–2.5 m/s).
-          * **Split Tee / Sleeve Mekanik Doğrulaması**: Type A vs Type B ayrımı, `T_sleeve ≥ t_req_h` kontrolü ve minimum manşon boyu (ASME B31.8 Para 831.4.2(h) & ASME PCC-2).
+          * **Split Tee / Full Encirclement Sleeve Doğrulaması (ASME B31.8-2025)**: Complete encirclement alan yöntemi (Appendix F, Fig. F-2.1.5-1) ve basınçlı hot tap tee manşonu uç kaynak/uç yüz tasarımı (Para 831.4.2(j), Fig. I-1.1-4).
           * **Genişletilmiş Malzeme Kataloğu (Split Tee / Sleeve / Boru)**:
             * **EN 10028-2**: P235GH, P265GH, P295GH, P355GH (yüksek sıcaklık sacı)
             * **EN 10028-3**: P275NL1/NL2, P355N/NH/NL1/NL2, P460N/NH/NL1/NL2 (ince taneli sac)
@@ -236,7 +243,7 @@ jobs:
             * Hadde İmalat Toleransı (API 5L %12.5) ve Nominal vs Minimum Kalınlık Bazı Analizi.
           * **Geometri, Kaynak & Güvenlik**:
             * Açılı (Lateral $45^\circ \le \beta \le 90^\circ$) Branşman Alan Telafisi.
-            * ASME B31.8 Fig. I-4 Kaynak Boğazı ($t_c$) ve Bacak Boyu Denetimleri.
+            * ASME B31.8-2025 Fig. I-1.1-1 Kaynak Bacağı ($W_1 = 3B/8$, min 6.35 mm) ve Boğaz Denetimleri.
             * API RP 2201 Hot Tap Yanma (Burn-through) Güvenlik Uyarısı.
             * Otomatik Takviye Pedi Boyutlandırma Motoru (Auto-Size Pad).
             * ASME B31.8 Para 841.3.2 Hidrostatik Saha Testi Analizi.
